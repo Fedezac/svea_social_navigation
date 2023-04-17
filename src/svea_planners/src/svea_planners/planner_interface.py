@@ -18,8 +18,10 @@ class PlannerInterface(object):
     _start = None
     _goal = None
     _path = None
+    _obs_margin = None
 
-    def __init__(self):
+    def __init__(self, obs_margin=0.05):
+        self._obs_margin = obs_margin
         self._gridmap_interface = GridMapInterface()
         self._gridmap_interface.init_ros_subscribers()
         rospy.loginfo("Planning interface correctly initialized")
@@ -31,7 +33,7 @@ class PlannerInterface(object):
         It defines the planner only in case start and goal position are given.
         """
         delta, limits, obstacles = self._gridmap_interface.get_planner_world()
-        self._world = AStarWorld(delta=delta, limit=limits, obstacles=np.multiply([delta[0], delta[1], 1], np.array(obstacles)).tolist(), obs_margin=0.05)
+        self._world = AStarWorld(delta=delta, limit=limits, obstacles=np.multiply([delta[0], delta[1], 1], np.array(obstacles)).tolist(), obs_margin=self._obs_margin)
         if self._start and self._goal:
             self._planner = AStarPlanner(self._world, self._start, self._goal)
         else:
@@ -99,13 +101,13 @@ def main():
     debug = load_param('~debug', True)
     
     # TODO: params
-    start_x = 6.3
-    start_y = 5.5
-    goal_x = 4.1
-    goal_y = 4.6 
+    start_x = 7.0
+    start_y = 3.6
+    goal_x = 2.8
+    goal_y = 7.2 
     GRANULARITY = 4
     
-    pi = PlannerInterface()
+    pi = PlannerInterface(obs_margin=0.07)
     pi.set_start([start_x, start_y])
     pi.set_goal([goal_x, goal_y])
     pi.initialize_planner_world()

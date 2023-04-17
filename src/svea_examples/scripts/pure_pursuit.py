@@ -116,7 +116,7 @@ class pure_pursuit:
         GRANULARITY = 4
         debug = False
         
-        pi = PlannerInterface()
+        pi = PlannerInterface(obs_margin=0.07)
         pi.set_start([start_x, start_y])
         pi.set_goal([goal_x, goal_y])
         pi.initialize_planner_world()
