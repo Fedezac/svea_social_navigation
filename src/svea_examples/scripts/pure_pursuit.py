@@ -67,16 +67,13 @@ class pure_pursuit:
         rospy.init_node('pure_pursuit')
 
         ## Parameters
-
-        self.POINTS = load_param('~points')
         self.IS_SIM = load_param('~is_sim', False)
         self.USE_RVIZ = load_param('~use_rviz', False)
+        # Get remote rviz parameter
+        self.REMOTE_RVIZ = load_param('~remote_rviz', True)
         self.STATE = load_param('~state', [0, 0, 0, 0])
 
-        assert_points(self.POINTS)
-
         ## Set initial values for node
-
         # initial state
         self.state = VehicleState(*self.STATE)
         publish_initialpose(self.state)
@@ -152,10 +149,10 @@ class pure_pursuit:
         return not (self.svea.is_finished or rospy.is_shutdown())
 
     def spin(self):
-        #!! Safe to send controls is localization node is up and running
+        # Safe to send controls is localization node is up and running
         safe = self.svea.localizer.is_ready
         # limit the rate of main loop by waiting for state
-        state = self.svea.wait_for_state()
+        self.state = self.svea.wait_for_state()
 
         if safe:
             steering, velocity = self.svea.compute_control(self.state)
