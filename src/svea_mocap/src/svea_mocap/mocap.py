@@ -192,6 +192,8 @@ class MotionCaptureInterface(object):
     def _read_odom_msg(self, msg):
         if not self._curr_vel_twist is None:
             msg = self.fix_twist(msg)
+            msg = self._correct_mocap_coordinates(msg)
+            msg = self._compute_vehicle_velocity(msg)
             self.state.odometry_msg = msg
             # apply model offsets (if any)
             self.state.x += self._x_offset
