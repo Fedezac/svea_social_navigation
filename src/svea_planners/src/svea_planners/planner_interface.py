@@ -19,6 +19,8 @@ class PlannerInterface(object):
     _goal = None
     _path = None
     _obs_margin = None
+    _social_waypoints = None
+    THETA_THRESHOLD = 0.11
 
     def __init__(self, obs_margin=0.05):
         self._obs_margin = obs_margin
@@ -58,6 +60,34 @@ class PlannerInterface(object):
         else: 
             return self._path_interface.get_points_path()
         
+    def get_social_waypoints(self, granularity=None):
+        """
+        Function used to retrieve socially feasible waypoints (from Kivrak et al. 2022)
+
+        :return: array of socially feasible waypoints
+        :rtype: numpy array of floats
+        """
+        path = np.array(self.get_points_path(granularity=granularity))
+        # Empty array of waypoints
+        self._social_waypoints = []
+        # For every point in the path
+        for idx, p in enumerate(path):
+            # Starting and ending point must be in the array of socially acceptable waypoints
+            if idx == 0 or idx == np.shape(path)[0] - 1:
+                self._social_waypoints.append(p)
+            else:
+                # Compute vector connecting current point and precedent one
+                v1 = p - path[idx - 1]
+                # Compute vector connecting subsequent point and current one
+                v2 = path[idx + 1] - p
+                # Get angle between them
+                theta = np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
+                print(theta)
+                # If angle is less then a certain threshold, then add current point to array of waypoints
+                if theta < self.THETA_THRESHOLD:
+                    self._social_waypoints.append(p)
+        return self._social_waypoints
+          
     def publish_internal_representation(self):
         self._gridmap_interface.publish_map_internal_representation()
 

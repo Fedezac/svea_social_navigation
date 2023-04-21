@@ -474,6 +474,8 @@ class AStarPlanner(object):
         y4 = np.interp(t, t2, y3)
         
         smooth_path = np.array([x4, y4]).T
+        # If a more detailed path is needed
+        #smooth_path = np.array([x3, y3]).T
         return smooth_path.tolist()
 
     def create_path(self):

@@ -113,7 +113,7 @@ class SocialNavigation(object):
     DELTA_TIME = 0.1
     GOAL_THRESH = 0.1
     TARGET_VELOCITY = 0.3
-    WINDOW_LEN = 1
+    WINDOW_LEN = 10
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
     POINTS = []
 
@@ -215,10 +215,9 @@ class SocialNavigation(object):
         pi.compute_path()
         pi.initialize_path_interface()
         # Get path 
-        self.path = pi.get_points_path()
-        # Convert it to np array
-        self.path = np.array(self.path)
-        print(self.path)
+        #self.path = np.array(pi.get_points_path())
+        self.path = np.array(pi.get_social_waypoints())
+        print(f'Social navigation path: {self.path} social, {np.shape(self.path)[0]}')
 
         # If debug mode is on, publish map's representation on RVIZ
         if debug:
@@ -244,6 +243,7 @@ class SocialNavigation(object):
         # Spin until alive and if localizer is reasy
         while self.keep_alive():
             self.spin()
+            rospy.sleep(2)
 
     def spin(self):
         safe = self.localizer.is_ready
@@ -296,8 +296,8 @@ class SocialNavigation(object):
         self.pred_path_pub.publish(path)
 
         # Visualize data
-        self.data_handler.visualize_data()
         self.data_handler.update_target((self.path[self.waypoint_idx, 0], self.path[self.waypoint_idx, 1]))
+        self.data_handler.visualize_data()
 
 if __name__ == '__main__':
     ## Start node ##
