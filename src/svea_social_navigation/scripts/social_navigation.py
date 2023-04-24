@@ -113,7 +113,7 @@ class SocialNavigation(object):
     DELTA_TIME = 0.1
     GOAL_THRESH = 0.1
     TARGET_VELOCITY = 0.3
-    WINDOW_LEN = 10
+    WINDOW_LEN = 7
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
     POINTS = []
 
@@ -168,16 +168,19 @@ class SocialNavigation(object):
             u_lb=[-1, -np.pi / 5],
             u_ub=[1.5, np.pi / 5],
         )
+        
+        if not self.IS_SIM:
+            # Start lidar
+            self.lidar = Lidar().start()
+            # Start actuation interface 
+            self.actuation = ActuationInterface().start()
 
-        # Start actuation interface 
-        self.actuation = ActuationInterface().start()
         # Start localization interface based on which localization method is being used
         if self.IS_MOCAP:
             self.localizer = MotionCaptureInterface().start()
         else:
             self.localizer = LocalizationInterface().start()
-        # Start lidar
-        self.lidar = Lidar().start()
+        
         # Start simulator
         if self.IS_SIM:
             self.simulator.toggle_pause_simulation()
@@ -228,10 +231,30 @@ class SocialNavigation(object):
         # Create path structure for MPC
         self.path = np.hstack((self.path, np.full((np.shape(self.path)[0], 1), self.TARGET_VELOCITY)))
         self.path = np.hstack((self.path, np.zeros((np.shape(self.path)[0], 1))))
+        for i, p in enumerate(self.path):
+            if i != np.shape(self.path)[0] - 1:
+                self.path[i, 3] = np.arctan2(self.path[i + 1, 1] - self.path[i, 1], self.path[i + 1, 0] - self.path[i, 0])
+            else:
+                self.path[i, 3] = self.path[i - 1,3]
 
+    def _visualize_data(self, x_pred, y_pred):
+        # Visualize predicted local tracectory
+        new_pred = lists_to_pose_stampeds(list(x_pred), list(y_pred))
+        path = Path()
+        path.header.stamp = rospy.Time.now()
+        path.header.frame_id = "map"
+        path.poses = new_pred
+        self.pred_path_pub.publish(path)
+
+        # Visualize data
+        self.data_handler.log_state(self.state)
+        self.data_handler.update_target((self.path[self.waypoint_idx, 0], self.path[self.waypoint_idx, 1]))
+        self.data_handler.visualize_data()
+        
     def keep_alive(self):
         # TODO: condition for stopping should be to be on the goal
-        return not (rospy.is_shutdown())
+        distance = np.linalg.norm(np.array(self.GOAL) - np.array([self.state.x, self.state.y]))
+        return not (rospy.is_shutdown() and distance < self.GOAL_THRESH)
 
     def run(self):
         """
@@ -243,28 +266,33 @@ class SocialNavigation(object):
         # Spin until alive and if localizer is reasy
         while self.keep_alive():
             self.spin()
-            rospy.sleep(2)
+            #rospy.sleep(0.5)
+        print('ENDING')
 
     def spin(self):
         safe = self.localizer.is_ready
         if self.IS_SIM:
+            # Get state from simulation
             self.state = self.sim_model.state
         else:
             # Wait for state
             self.state = self.wait_for_state_from_localizer()
-        print(f'State: {self.state.x, self.state.y, self.state.v, self.state.yaw}')
+
         # Create new initial state for MPC
-        current_state = np.vstack([self.state.x, self.state.y, self.state.v, self.state.yaw])
-        # TODO: feasible way of getting index of next waypoint
-        if np.linalg.norm(current_state[0:2] - self.path[0:2, self.waypoint_idx]) < self.GOAL_THRESH:
+        current_state = np.array([self.state.x, self.state.y, self.state.v, self.state.yaw])
+        print(f'Current state: {current_state}')
+        if np.linalg.norm(current_state[0:2] - self.path[self.waypoint_idx, 0:2]) < self.GOAL_THRESH:
+            print('SWITCHING TO NEXT WAYPOINT')
             self.waypoint_idx += 1
-        print(f'Closest state: {self.path[self.waypoint_idx,:]}')
+        print(f'Waypoint: {self.path[self.waypoint_idx,:]}')
+
+        # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
+        # final goal
         if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
             # TODO: safe way to have fake N points when getting closer to the end of the path 
             last_iteration_points = self.path[self.waypoint_idx:, :]
             while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
                 last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-            print(last_iteration_points)
             u, predicted_state = self.controller.get_ctrl(current_state, last_iteration_points[:, :].T)
         else:
             u, predicted_state = self.controller.get_ctrl(current_state, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T)
@@ -272,6 +300,7 @@ class SocialNavigation(object):
         # Get optimal velocity and steering controls
         velocity = u[0, 0]
         steering = u[1, 0]
+        print(f'Optimal control: {velocity, steering}')
         # Send control to actuator interface
         if safe:
             self.actuation.send_control(steering, velocity)
@@ -279,25 +308,10 @@ class SocialNavigation(object):
         # If model is simulated, then update new state
         if self.IS_SIM:
             self.sim_model.update(steering, velocity, self.DELTA_TIME)
-            
-        current_state = np.vstack([self.state.x, self.state.y, self.state.v, self.state.yaw])
-        if np.linalg.norm(current_state[0:2] - self.path[0:2, self.waypoint_idx]) < self.GOAL_THRESH:
-            self.waypoint_idx += 1
 
         # Get MPC predicted path as planned path
-        x_pred = predicted_state[0, :]
-        y_pred = predicted_state[1, :]
-        # Visualize predicted local tracectory
-        new_pred = lists_to_pose_stampeds(list(x_pred), list(y_pred))
-        path = Path()
-        path.header.stamp = rospy.Time.now()
-        path.header.frame_id = "map"
-        path.poses = new_pred
-        self.pred_path_pub.publish(path)
+        self._visualize_data(predicted_state[0, :], predicted_state[1, :])
 
-        # Visualize data
-        self.data_handler.update_target((self.path[self.waypoint_idx, 0], self.path[self.waypoint_idx, 1]))
-        self.data_handler.visualize_data()
 
 if __name__ == '__main__':
     ## Start node ##

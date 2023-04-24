@@ -82,7 +82,6 @@ class PlannerInterface(object):
                 v2 = path[idx + 1] - p
                 # Get angle between them
                 theta = np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
-                print(theta)
                 # If angle is less then a certain threshold, then add current point to array of waypoints
                 if theta < self.THETA_THRESHOLD:
                     self._social_waypoints.append(p)

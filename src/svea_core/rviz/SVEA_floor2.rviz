@@ -4,7 +4,6 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Raw LiDAR1
         - /TF1/Frames1
         - /Path1
         - /Path2
@@ -100,7 +99,7 @@ Visualization Manager:
       Topic: /3D_car
       Unreliable: false
       Value: true
-    - Alpha: 1
+    - Alpha: 0.5
       Axes Length: 1
       Axes Radius: 0.10000000149011612
       Class: rviz/Pose
@@ -140,14 +139,14 @@ Visualization Manager:
       Topic: /path_plan
       Unreliable: false
       Value: true
-    - Alpha: 1
+    - Alpha: 0.5
       Class: rviz/PointStamped
       Color: 255; 0; 0
       Enabled: true
       History Length: 1
       Name: Target
       Queue Size: 10
-      Radius: 0.20000000298023224
+      Radius: 0.05000000074505806
       Topic: /target
       Unreliable: false
       Value: true
@@ -247,16 +246,12 @@ Visualization Manager:
       Unreliable: false
       Value: true
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
+      Filter (blacklist): ""
+      Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        base_link:
-          Value: true
-        map:
-          Value: true
-        odom:
-          Value: true
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -264,12 +259,9 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        map:
-          odom:
-            base_link:
-              {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
@@ -313,7 +305,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
-      Color: 114; 159; 207
+      Color: 25; 255; 0
       Enabled: true
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
@@ -362,7 +354,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 23.011127471923828
+      Distance: 20.490070343017578
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -370,17 +362,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 6.650528907775879
-        Y: 7.549346446990967
-        Z: -4.632314205169678
+        X: 6.397587776184082
+        Y: 7.522538185119629
+        Z: -4.99915885925293
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.539797842502594
+      Pitch: 0.47979751229286194
       Target Frame: base_link
-      Yaw: 4.039995193481445
+      Yaw: 3.989994525909424
     Saved: ~
 Window Geometry:
   Displays:
