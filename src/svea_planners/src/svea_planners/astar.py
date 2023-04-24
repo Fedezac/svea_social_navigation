@@ -466,7 +466,7 @@ class AStarPlanner(object):
 
         x2 = np.interp(t2, t, path[:, 0])
         y2 = np.interp(t2, t, path[:, 1])
-        sigma = 5
+        sigma = 7
         x3 = gaussian_filter1d(x2, sigma)
         y3 = gaussian_filter1d(y2, sigma)
 

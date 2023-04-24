@@ -20,7 +20,7 @@ class PlannerInterface(object):
     _path = None
     _obs_margin = None
     _social_waypoints = None
-    THETA_THRESHOLD = 0.11
+    THETA_THRESHOLD = 0.03
 
     def __init__(self, obs_margin=0.05):
         self._obs_margin = obs_margin
@@ -80,8 +80,8 @@ class PlannerInterface(object):
                 v1 = p - path[idx - 1]
                 # Compute vector connecting subsequent point and current one
                 v2 = path[idx + 1] - p
-                # Get angle between them
-                theta = np.arccos(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)))
+                # Get angle between them (first clip value of cos(theta) between -1.0 and 1.0)
+                theta = np.arccos(np.clip(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)), -1.0, 1.0))
                 # If angle is less then a certain threshold, then add current point to array of waypoints
                 if theta < self.THETA_THRESHOLD:
                     self._social_waypoints.append(p)

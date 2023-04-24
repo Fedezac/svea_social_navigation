@@ -13,8 +13,8 @@ from svea.states import VehicleState
 from svea.simulators.sim_SVEA import SimSVEA
 from svea.interfaces import LocalizationInterface, ActuationInterface
 from svea_mocap.mocap import MotionCaptureInterface
-from svea.data import TrajDataHandler, RVIZPathHandler
-from svea_planners.planner_interface import PlannerInterface 
+from svea.data import RVIZPathHandler
+from svea_planners.planner_interface import PlannerInterface
 
 # ROS imports
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
@@ -35,22 +35,6 @@ def load_param(name, value=None):
     if value is None:
         assert rospy.has_param(name), f'Missing parameter "{name}"'
     return rospy.get_param(name, value)
-
-
-def assert_points(pts):
-    """
-    Method used to assert that points are well formed
-
-    :param pts: array of points
-    :type pts: list(2-ple(float))
-    """
-    assert isinstance(pts, (list, tuple)), 'points is of wrong type, expected list'
-    for xy in pts:
-        assert isinstance(xy, (list, tuple)), 'points contain an element of wrong type, expected list of two values (x, y)'
-        assert len(xy), 'points contain an element of wrong type, expected list of two values (x, y)'
-        x, y = xy
-        assert isinstance(x, (int, float)), 'points contain a coordinate pair wherein one value is not a number'
-        assert isinstance(y, (int, float)), 'points contain a coordinate pair wherein one value is not a number'
 
 def publish_initialpose(state, n=10):
     """
@@ -105,17 +89,12 @@ def lists_to_pose_stampeds(x_list, y_list, yaw_list=None, t_list=None):
         poses.append(curr_pose)
     return poses
 
-def find_nearest(array, value):   
-    idx = (np.abs(array - value)).argmin();     
-    return idx
-
 class SocialNavigation(object):
     DELTA_TIME = 0.1
     GOAL_THRESH = 0.1
-    TARGET_VELOCITY = 0.3
-    WINDOW_LEN = 7
+    TARGET_VELOCITY = 0.2
+    WINDOW_LEN = 10
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
-    POINTS = []
 
     def __init__(self):
         """
@@ -130,19 +109,19 @@ class SocialNavigation(object):
         self.IS_MOCAP = load_param('~is_mocap', True)
         self.STATE = load_param('~state', [0, 0, 0, 0])
         self.GOAL = load_param('~goal', [0, 0])
-
+        self.SVEA_NAME = load_param('~svea_name', 'svea7')
         # Define publisher for MPC predicted path
         self.pred_path_pub = rospy.Publisher("pred_path", Path, queue_size=1, latch=True)
 
         # Initilize vehicle state
         self.state = VehicleState(*self.STATE)
+        self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
         self.last_state_time = None
         # Publish initial pose
         publish_initialpose(self.state)
 
         # Instatiate RVIZPathHandler object if publishing to RVIZ
-        if self.IS_SIM or self.REMOTE_RVIZ:
-            self.data_handler = RVIZPathHandler()
+        self.data_handler = RVIZPathHandler()
 
         if self.IS_SIM:
             # Simulator needs a model to simulate
@@ -165,8 +144,8 @@ class SocialNavigation(object):
             R=[1, 2],
             x_lb=[-100, -100, -0.5, -2*np.pi],
             x_ub=[100, 100, 0.6, 2*np.inf],
-            u_lb=[-1, -np.pi / 5],
-            u_ub=[1.5, np.pi / 5],
+            u_lb=[-1, -np.deg2rad(40)],
+            u_ub=[1.5, np.deg2rad(40)],
         )
         
         if not self.IS_SIM:
@@ -174,12 +153,11 @@ class SocialNavigation(object):
             self.lidar = Lidar().start()
             # Start actuation interface 
             self.actuation = ActuationInterface().start()
-
-        # Start localization interface based on which localization method is being used
-        if self.IS_MOCAP:
-            self.localizer = MotionCaptureInterface().start()
-        else:
-            self.localizer = LocalizationInterface().start()
+            # Start localization interface based on which localization method is being used
+            if self.IS_MOCAP:
+                self.localizer = MotionCaptureInterface(self.SVEA_NAME).start()
+            else:
+                self.localizer = LocalizationInterface().start()
         
         # Start simulator
         if self.IS_SIM:
@@ -220,7 +198,7 @@ class SocialNavigation(object):
         # Get path 
         #self.path = np.array(pi.get_points_path())
         self.path = np.array(pi.get_social_waypoints())
-        print(f'Social navigation path: {self.path} social, {np.shape(self.path)[0]}')
+        print(f'Social navigation path: {self.path} size, {np.shape(self.path)[0]}')
 
         # If debug mode is on, publish map's representation on RVIZ
         if debug:
@@ -235,9 +213,9 @@ class SocialNavigation(object):
             if i != np.shape(self.path)[0] - 1:
                 self.path[i, 3] = np.arctan2(self.path[i + 1, 1] - self.path[i, 1], self.path[i + 1, 0] - self.path[i, 0])
             else:
-                self.path[i, 3] = self.path[i - 1,3]
-
-    def _visualize_data(self, x_pred, y_pred):
+                self.path[i, 3] = self.path[i - 1, 3]
+            
+    def _visualize_data(self, x_pred, y_pred, velocity, steering):
         # Visualize predicted local tracectory
         new_pred = lists_to_pose_stampeds(list(x_pred), list(y_pred))
         path = Path()
@@ -248,13 +226,13 @@ class SocialNavigation(object):
 
         # Visualize data
         self.data_handler.log_state(self.state)
+        self.data_handler.log_ctrl(steering, velocity, rospy.get_time())
         self.data_handler.update_target((self.path[self.waypoint_idx, 0], self.path[self.waypoint_idx, 1]))
         self.data_handler.visualize_data()
-        
+
     def keep_alive(self):
-        # TODO: condition for stopping should be to be on the goal
         distance = np.linalg.norm(np.array(self.GOAL) - np.array([self.state.x, self.state.y]))
-        return not (rospy.is_shutdown() and distance < self.GOAL_THRESH)
+        return not (rospy.is_shutdown() or distance < self.GOAL_THRESH)
 
     def run(self):
         """
@@ -265,23 +243,40 @@ class SocialNavigation(object):
         self.waypoint_idx = 1
         # Spin until alive and if localizer is reasy
         while self.keep_alive():
-            self.spin()
-            #rospy.sleep(0.5)
+            self.spin_sim()
+            #rospy.sleep(0.1)
         print('ENDING')
+
+    def spin_sim(self):
+        if np.linalg.norm(self.x0[0:2] - self.path[self.waypoint_idx, 0:2]) < self.GOAL_THRESH and self.waypoint_idx < np.shape(self.path)[0] - 1:
+            self.waypoint_idx += 1
+
+        if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
+            # TODO: safe way to have fake N points when getting closer to the end of the path 
+            last_iteration_points = self.path[self.waypoint_idx:, :]
+            while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
+                last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
+            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T)
+        else:
+            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T)
+
+        velocity = u[0, 0]
+        steering = u[1, 0]
+        self.sim_model.update(steering, velocity, self.DELTA_TIME)
+        self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
+
+        # Visualize data on RVIZ
+        self._visualize_data(predicted_state[0, :], predicted_state[1, :], velocity, steering)
 
     def spin(self):
         safe = self.localizer.is_ready
-        if self.IS_SIM:
-            # Get state from simulation
-            self.state = self.sim_model.state
-        else:
-            # Wait for state
+        if not self.IS_SIM:
+            # Wait for state from localization interface
             self.state = self.wait_for_state_from_localizer()
+            self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
 
-        # Create new initial state for MPC
-        current_state = np.array([self.state.x, self.state.y, self.state.v, self.state.yaw])
-        print(f'Current state: {current_state}')
-        if np.linalg.norm(current_state[0:2] - self.path[self.waypoint_idx, 0:2]) < self.GOAL_THRESH:
+        print(f'Current state: {self.x0}')
+        if np.linalg.norm(self.x0[0:2] - self.path[self.waypoint_idx, 0:2]) < self.GOAL_THRESH and self.waypoint_idx < np.shape(self.path)[0] - 1:
             print('SWITCHING TO NEXT WAYPOINT')
             self.waypoint_idx += 1
         print(f'Waypoint: {self.path[self.waypoint_idx,:]}')
@@ -293,24 +288,25 @@ class SocialNavigation(object):
             last_iteration_points = self.path[self.waypoint_idx:, :]
             while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
                 last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-            u, predicted_state = self.controller.get_ctrl(current_state, last_iteration_points[:, :].T)
+            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T)
         else:
-            u, predicted_state = self.controller.get_ctrl(current_state, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T)
+            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T)
 
         # Get optimal velocity and steering controls
         velocity = u[0, 0]
         steering = u[1, 0]
         print(f'Optimal control: {velocity, steering}')
         # Send control to actuator interface
-        if safe:
+        if safe and not self.IS_SIM:
             self.actuation.send_control(steering, velocity)
 
         # If model is simulated, then update new state
         if self.IS_SIM:
             self.sim_model.update(steering, velocity, self.DELTA_TIME)
+            self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
 
-        # Get MPC predicted path as planned path
-        self._visualize_data(predicted_state[0, :], predicted_state[1, :])
+        # Visualize data on RVIZ
+        self._visualize_data(predicted_state[0, :], predicted_state[1, :], velocity, steering)
 
 
 if __name__ == '__main__':
