@@ -2,6 +2,7 @@
 
 import rospy
 import numpy as np
+from scipy.ndimage import gaussian_filter1d
 from svea_planners.gridmap_interface import GridMapInterface
 from svea_planners.path_interface import PathInterface
 from svea_planners.astar import AStarPlanner, AStarWorld
@@ -22,8 +23,10 @@ class PlannerInterface(object):
     _social_waypoints = None
     THETA_THRESHOLD = 0.03
 
-    def __init__(self, obs_margin=0.05):
+    def __init__(self, obs_margin=0.05, smoothing_res=500):
         self._obs_margin = obs_margin
+        # Get smoothing resolution
+        self.smoothing_resolution = smoothing_res
         self._gridmap_interface = GridMapInterface()
         self._gridmap_interface.init_ros_subscribers()
         rospy.loginfo("Planning interface correctly initialized")
@@ -53,12 +56,47 @@ class PlannerInterface(object):
     def publish_rviz_path(self):
         self._path_interface.create_pose_path()
         self._path_interface.publish_rviz_path()
+    
+    def _smooth_path(self, path):
+        """
+        Function that smooth the computed path by Gaussian Filtering
+
+        :param path: retrieved path
+        :type path: list(float)
+        :return: smoothed path
+        :rtype: list(float)
+        """
+        path = np.array(path)
+        t = np.linspace(0, 1, np.shape(path)[0])
+        t2 = np.linspace(0, 1, self.smoothing_resolution)
+
+        x2 = np.interp(t2, t, path[:, 0])
+        y2 = np.interp(t2, t, path[:, 1])
+        sigma = 7
+        x3 = gaussian_filter1d(x2, sigma)
+        y3 = gaussian_filter1d(y2, sigma)
+
+        x4 = np.interp(t, t2, x3)
+        y4 = np.interp(t, t2, y3)
+        
+        smooth_path = np.array([x4, y4]).T
+        # If a more detailed path is needed
+        #smooth_path = np.array([x3, y3]).T
+        return smooth_path.tolist()
 
     def get_points_path(self, granularity=None):
+        """
+        Function to get every (x, y) point composing the path
+
+        :param granularity: get one point of the path each N-granularity points, defaults to None
+        :type granularity: integer, optional
+        :return: list of points
+        :rtype: list[float]
+        """
         if granularity is not None:
-            return self._path_interface.get_points_path_reduced(granularity)
+            return self._smooth_path(self._path_interface.get_points_path_reduced(granularity))
         else: 
-            return self._path_interface.get_points_path()
+            return self._smooth_path(self._path_interface.get_points_path())
         
     def get_social_waypoints(self, granularity=None):
         """
@@ -115,41 +153,3 @@ class PlannerInterface(object):
         Getter method for goal position
         """
         return self._goal
-
-
-"""
-==== From now on, main for debugging ====
-"""
-def load_param(name, value=None):
-    if value is None:
-        assert rospy.has_param(name), f'Missing parameter "{name}"'
-    return rospy.get_param(name, value)
-
-def main():
-    rospy.init_node('planner_test')
-    debug = load_param('~debug', True)
-    
-    # TODO: params
-    start_x = 7.0
-    start_y = 3.6
-    goal_x = 2.8
-    goal_y = 7.2 
-    GRANULARITY = 4
-    
-    pi = PlannerInterface(obs_margin=0.07)
-    pi.set_start([start_x, start_y])
-    pi.set_goal([goal_x, goal_y])
-    pi.initialize_planner_world()
-    pi.compute_path()
-    pi.initialize_path_interface()
-    path = pi.get_points_path(GRANULARITY)
-
-    if debug:
-        pi.publish_internal_representation()
-
-    pi.publish_rviz_path()
-    rospy.spin()
-    
-
-if __name__ == '__main__':
-    main()

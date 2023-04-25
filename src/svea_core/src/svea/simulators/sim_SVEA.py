@@ -229,14 +229,14 @@ class SimSVEA(object):
 
     def _broadcast_tf(self):
         map2odom = TransformStamped()
-        map2odom.header.stamp = self.current_state.pose_msg.header.stamp
+        map2odom.header.stamp = rospy.Time.now()
         map2odom.header.frame_id = self._map_frame_id
         map2odom.child_frame_id = self._odom_frame_id
         map2odom.transform.rotation.w = 1.0
         self.tf_br.sendTransform(map2odom)
 
         odom2base = TransformStamped()
-        odom2base.header.stamp = self.current_state.pose_msg.header.stamp
+        odom2base.header.stamp = rospy.Time.now()
         odom2base.header.frame_id = self._odom_frame_id
         odom2base.child_frame_id = self._base_link_frame_id
         pose = self.current_state.pose_msg.pose.pose

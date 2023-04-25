@@ -120,6 +120,20 @@ class SocialNavigation(object):
         # Publish initial pose
         publish_initialpose(self.state)
 
+        # Create vehicle model object
+        self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
+        # Create MPC controller object
+        self.controller = MPC(
+            self.model,
+            N=self.WINDOW_LEN,
+            Q=[5, 5, 50, 7],
+            R=[1, 2],
+            x_lb=[-100, -100, -0.5, -2*np.pi],
+            x_ub=[100, 100, 0.6, 2*np.inf],
+            u_lb=[-1, -np.deg2rad(40)],
+            u_ub=[1.5, np.deg2rad(40)],
+        )
+
         # Instatiate RVIZPathHandler object if publishing to RVIZ
         self.data_handler = RVIZPathHandler()
 
@@ -132,21 +146,6 @@ class SocialNavigation(object):
                                      dt=self.DELTA_TIME,
                                      run_lidar=True,
                                      start_paused=True).start()
-
-        # Create vehicle model object
-        self.model = BicycleModel(initial_state=self.state, dt=self.DELTA_TIME)
-
-        # Create MPC controller object
-        self.controller = MPC(
-            self.model,
-            N=self.WINDOW_LEN,
-            Q=[5, 5, 50, 7],
-            R=[1, 2],
-            x_lb=[-100, -100, -0.5, -2*np.pi],
-            x_ub=[100, 100, 0.6, 2*np.inf],
-            u_lb=[-1, -np.deg2rad(40)],
-            u_ub=[1.5, np.deg2rad(40)],
-        )
         
         if not self.IS_SIM:
             # Start lidar
@@ -198,14 +197,13 @@ class SocialNavigation(object):
         # Get path 
         #self.path = np.array(pi.get_points_path())
         self.path = np.array(pi.get_social_waypoints())
-        print(f'Social navigation path: {self.path} size, {np.shape(self.path)[0]}')
 
         # If debug mode is on, publish map's representation on RVIZ
         if debug:
             pi.publish_internal_representation()
         # Publish global path on rviz
         pi.publish_rviz_path()
-
+        print(self.path)
         # Create path structure for MPC
         self.path = np.hstack((self.path, np.full((np.shape(self.path)[0], 1), self.TARGET_VELOCITY)))
         self.path = np.hstack((self.path, np.zeros((np.shape(self.path)[0], 1))))
@@ -214,6 +212,8 @@ class SocialNavigation(object):
                 self.path[i, 3] = np.arctan2(self.path[i + 1, 1] - self.path[i, 1], self.path[i + 1, 0] - self.path[i, 0])
             else:
                 self.path[i, 3] = self.path[i - 1, 3]
+        print(f'Social navigation path: {self.path} size, {np.shape(self.path)[0]}')
+        exit()
             
     def _visualize_data(self, x_pred, y_pred, velocity, steering):
         # Visualize predicted local tracectory
@@ -241,45 +241,25 @@ class SocialNavigation(object):
         # Plan a feasible path
         self.plan()
         self.waypoint_idx = 1
-        # Spin until alive and if localizer is reasy
+        # Spin until alive
         while self.keep_alive():
-            self.spin_sim()
-            #rospy.sleep(0.1)
+            self.spin()
         print('ENDING')
 
-    def spin_sim(self):
-        if np.linalg.norm(self.x0[0:2] - self.path[self.waypoint_idx, 0:2]) < self.GOAL_THRESH and self.waypoint_idx < np.shape(self.path)[0] - 1:
-            self.waypoint_idx += 1
-
-        if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
-            # TODO: safe way to have fake N points when getting closer to the end of the path 
-            last_iteration_points = self.path[self.waypoint_idx:, :]
-            while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
-                last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T)
-        else:
-            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T)
-
-        velocity = u[0, 0]
-        steering = u[1, 0]
-        self.sim_model.update(steering, velocity, self.DELTA_TIME)
-        self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
-
-        # Visualize data on RVIZ
-        self._visualize_data(predicted_state[0, :], predicted_state[1, :], velocity, steering)
-
     def spin(self):
-        safe = self.localizer.is_ready
         if not self.IS_SIM:
+            safe = self.localizer.is_ready
             # Wait for state from localization interface
             self.state = self.wait_for_state_from_localizer()
             self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
+        else:
+            self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
 
-        print(f'Current state: {self.x0}')
-        if np.linalg.norm(self.x0[0:2] - self.path[self.waypoint_idx, 0:2]) < self.GOAL_THRESH and self.waypoint_idx < np.shape(self.path)[0] - 1:
+        #print(f'Current state: {self.x0}')
+        while np.linalg.norm(self.x0[0:2] - self.path[self.waypoint_idx, 0:2]) < self.GOAL_THRESH and self.waypoint_idx < np.shape(self.path)[0] - 1:
             print('SWITCHING TO NEXT WAYPOINT')
             self.waypoint_idx += 1
-        print(f'Waypoint: {self.path[self.waypoint_idx,:]}')
+        #print(f'Waypoint: {self.path[self.waypoint_idx,:]}')
 
         # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
         # final goal
@@ -290,6 +270,7 @@ class SocialNavigation(object):
                 last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
             u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T)
         else:
+            print(self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :])
             u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T)
 
         # Get optimal velocity and steering controls
@@ -297,14 +278,14 @@ class SocialNavigation(object):
         steering = u[1, 0]
         print(f'Optimal control: {velocity, steering}')
         # Send control to actuator interface
-        if safe and not self.IS_SIM:
+        if not self.IS_SIM and safe:
             self.actuation.send_control(steering, velocity)
 
         # If model is simulated, then update new state
         if self.IS_SIM:
+            #print('UPDATING POS')
             self.sim_model.update(steering, velocity, self.DELTA_TIME)
-            self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
-
+            
         # Visualize data on RVIZ
         self._visualize_data(predicted_state[0, :], predicted_state[1, :], velocity, steering)
 

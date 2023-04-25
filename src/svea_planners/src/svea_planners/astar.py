@@ -1,6 +1,5 @@
 
 import numpy as np
-from scipy.ndimage import gaussian_filter1d
 
 
 def dist(a, b):
@@ -373,16 +372,13 @@ class AStarPlanner(object):
     # Visited cells ('black' ones)
     visited = None
 
-    def __init__(self, world, init_pos, goal_pos, smoothing_res=500):
+    def __init__(self, world, init_pos, goal_pos):
         # Initialize world
         self.world = world
         # Init cell (given position)
         self.init = self.world.pos_to_ind(init_pos)
         # Goal cell (given position)
         self.goal = self.world.pos_to_ind(goal_pos)
-
-        # Get smoothing resolution
-        self.smoothing_resolution = smoothing_res
 
         # Initialize init node as an AStarNode
         init_node = AStarNode(self.world, self.init, None, dist(self.init, self.goal))
@@ -451,33 +447,6 @@ class AStarPlanner(object):
                     self.contour.add(child)
         raise Exception('Could not find a path')
 
-    def _smooth_path(self, path):
-        """
-        Function that smooth the computed path by Gaussian Filtering
-
-        :param path: retrieved path
-        :type path: list(float)
-        :return: smoothed path
-        :rtype: list(float)
-        """
-        path = np.array(path)
-        t = np.linspace(0, 1, np.shape(path)[0])
-        t2 = np.linspace(0, 1, self.smoothing_resolution)
-
-        x2 = np.interp(t2, t, path[:, 0])
-        y2 = np.interp(t2, t, path[:, 1])
-        sigma = 7
-        x3 = gaussian_filter1d(x2, sigma)
-        y3 = gaussian_filter1d(y2, sigma)
-
-        x4 = np.interp(t, t2, x3)
-        y4 = np.interp(t, t2, y3)
-        
-        smooth_path = np.array([x4, y4]).T
-        # If a more detailed path is needed
-        #smooth_path = np.array([x3, y3]).T
-        return smooth_path.tolist()
-
     def create_path(self):
         """
         Function to retrieve the path from the init node to the goal 
@@ -487,5 +456,5 @@ class AStarPlanner(object):
         """
         final_node = self._run()
         path = list(map(lambda n: n.pos, final_node.family_tree()))
-        return self._smooth_path(path)
+        return path
 
