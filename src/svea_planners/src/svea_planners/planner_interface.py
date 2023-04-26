@@ -133,6 +133,7 @@ class PlannerInterface(object):
                 # If angle is less then a certain threshold, then add current point to array of waypoints
                 if theta < self._theta_threshold:
                     self._social_waypoints.append(p)
+        self._path = self._social_waypoints
         return self._social_waypoints
           
     def publish_internal_representation(self):

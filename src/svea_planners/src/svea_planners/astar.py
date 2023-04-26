@@ -206,8 +206,8 @@ class AStarWorld(object):
             obs = np.array([[x, y, rad + self.OBSTACLE_MARGIN] for x, y, rad in self.OBS])
             # Insert obstacles in occupancy grid
             #!! Choose the right shape
-            #self._select_circle_occupants(obs)
-            self._select_rectangle_occupants(obs)
+            self._select_circle_occupants(obs)
+            #self._select_rectangle_occupants(obs)
 
     def _select_circle_occupants(self, obs):
         """

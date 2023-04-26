@@ -40,9 +40,9 @@ class BicycleModel(GenericModel):
         delta = self.dae.add_u('delta')
 
         # System's equations
-        x_dot = v * np.cos(theta)
+        x_dot = v * np.cos(theta) 
         y_dot = v * np.sin(theta)
-        v_dot = (v_u - v) / self.TAU
+        v_dot = (v_u - v) / self.TAU 
         theta_dot = (v / self.WHEEL_BASE) * np.tan(delta)
         # Might be also approximated to:
         #theta_dot = (v / self.WHEEL_BASE) * delta

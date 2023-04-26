@@ -42,6 +42,9 @@ class PathInterface(object):
             print('Publishing path (length = {}) ...'.format(len(self._pose_path)))
             self._path_pub.publish(self._rviz_path)
 
+    def set_points_path(self, path):
+        self._points_path = path
+
     def get_points_path(self):
         return self._points_path
     

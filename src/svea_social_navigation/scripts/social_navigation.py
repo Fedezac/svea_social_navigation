@@ -94,7 +94,8 @@ class SocialNavigation(object):
     DELTA_TIME = 0.1
     GOAL_THRESH = 0.1
     TARGET_VELOCITY = 0.2
-    WINDOW_LEN = 10
+    # TODO: set window length on the basis of travelled distance between each timestep (20 or 25 could be fine)
+    WINDOW_LEN = 20
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
 
     def __init__(self):
@@ -142,13 +143,12 @@ class SocialNavigation(object):
         if self.IS_SIM:
             # Simulator needs a model to simulate
             self.sim_model = SimpleBicycleModel(self.state)
-            # TODO: decomment when a solution will be found
             # Start the simulator immediately, but paused
-            #self.simulator = SimSVEA(self.sim_model,
-            #                         vehicle_name=self.SVEA_NAME,
-            #                         dt=self.DELTA_TIME,
-            #                         run_lidar=True,
-            #                         start_paused=True).start()
+            self.simulator = SimSVEA(self.sim_model,
+                                     vehicle_name=self.SVEA_NAME,
+                                     dt=self.DELTA_TIME,
+                                     run_lidar=True,
+                                     start_paused=True).start()
         else:
             # Start lidar
             self.lidar = Lidar().start()
@@ -161,8 +161,8 @@ class SocialNavigation(object):
                 self.localizer = LocalizationInterface().start()
         
         # Start simulator
-        #if self.IS_SIM:
-        #    self.simulator.toggle_pause_simulation()
+        if self.IS_SIM:
+            self.simulator.toggle_pause_simulation()
 
     def wait_for_state_from_localizer(self):
         """Wait for a new state to arrive, or until a maximum time
@@ -189,8 +189,7 @@ class SocialNavigation(object):
 
     def plan(self):
         debug = False
-        
-        pi = PlannerInterface(obs_margin=0.07, weight_data=0.5, weight_smooth=0.5, tolerance=0.000001, theta_threshold=0.03)
+        pi = PlannerInterface(obs_margin=0.2, weight_data=0.5, weight_smooth=0.5, tolerance=0.000001, theta_threshold=0.3)
         pi.set_start([self.state.x, self.state.y])
         pi.set_goal([self.GOAL[0], self.GOAL[1]])
         pi.initialize_planner_world()
@@ -199,6 +198,7 @@ class SocialNavigation(object):
         # Get path 
         #self.path = np.array(pi.get_points_path())
         self.path = np.array(pi.get_social_waypoints())
+        pi.initialize_path_interface()
         print(f'Social navigation path: {self.path} size, {np.shape(self.path)[0]}')
 
         # If debug mode is on, publish map's representation on RVIZ
@@ -252,34 +252,6 @@ class SocialNavigation(object):
             self.spin()
         print('ENDING')
 
-    def spin_sim(self):
-        for i, p in enumerate(self.path):
-            while np.linalg.norm(self.x0[0:2] - p[0:2]) > self.GOAL_THRESH:
-                if i + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
-                    # TODO: safe way to have fake N points when getting closer to the end of the path 
-                    last_iteration_points = self.path[self.waypoint_idx:, :]
-                    while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
-                        last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-                    u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T)
-                else:
-                    u, predicted_state = self.controller.get_ctrl(self.x0, self.path[i:i + self.WINDOW_LEN + 1, :].T)
-                velocity = u[0, 0]
-                steering = u[1, 0]
-                self.sim_model.update(steering, velocity, self.DELTA_TIME)
-                self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
-                self.waypoint_idx = i
-                self.traj.append([self.x0[0], self.x0[1]])
-                # Visualize data on RVIZ
-                self._visualize_data(predicted_state[0, :], predicted_state[1, :], velocity, steering)
-                plt.clf()
-                plt.plot(np.asarray(self.path)[:, 0], np.asarray(self.path)[:, 1], 'bo', alpha=0.3)
-                plt.plot(np.asarray(self.path)[self.waypoint_idx, 0], np.asarray(self.path)[self.waypoint_idx, 1], 'go', alpha=0.5)
-                plt.plot(np.asarray(self.traj)[:, 0], np.asarray(self.traj)[:, 1], 'r-', alpha=0.7)
-                plt.plot(np.asarray(predicted_state).T[:, 0], np.asarray(predicted_state).T[:, 1], 'y-')
-                plt.draw()
-                plt.pause(0.01)
-
-
     def spin(self):
         if not self.IS_SIM:
             safe = self.localizer.is_ready
@@ -319,15 +291,6 @@ class SocialNavigation(object):
         # If model is simulated, then update new state
         if self.IS_SIM:
             self.sim_model.update(steering, velocity, self.DELTA_TIME)
-
-        self.traj.append([self.x0[0], self.x0[1]])
-        plt.clf()
-        plt.plot(np.asarray(self.path)[:, 0], np.asarray(self.path)[:, 1], 'bo', alpha=0.3)
-        plt.plot(np.asarray(self.path)[self.waypoint_idx, 0], np.asarray(self.path)[self.waypoint_idx, 1], 'go', alpha=0.5)
-        plt.plot(np.asarray(self.traj)[:, 0], np.asarray(self.traj)[:, 1], 'r-', alpha=0.7)
-        plt.plot(np.asarray(predicted_state).T[:, 0], np.asarray(predicted_state).T[:, 1], 'y-')
-        plt.draw()
-        plt.pause(0.01)
             
         # Visualize data on RVIZ
         self._visualize_data(predicted_state[0, :], predicted_state[1, :], velocity, steering)

@@ -2,16 +2,17 @@
 <launch>
 
     <!-- Launch file arguments -->
-    <arg name="map"             default="sml_planner"/>
-    <arg name="is_mocap"        default="true"/>
-    <arg name="svea_name"       default="svea7"/>
-    <arg name="is_sim"          default="true"/>
-    <arg name="use_rviz"        default="true"/>
-    <arg name="remote_rviz"     default="false"/>
-    <arg name="obstacle_map"    default="sml_obstacles"/>
-    <arg name="initial_pose_x"  default="-2.65488696"/>
-    <arg name="initial_pose_y"  default="-1.64422277"/>
-    <arg name="initial_pose_a"  default="1.57" /> <!-- wrt to map-->
+    <arg name="map" default="sml_planner"/>
+    <arg name="is_mocap" default="true"/>
+    <arg name="svea_name" default="svea7"/>
+    <arg name="is_sim" default="true"/>
+    <arg name="use_rviz" default="true"/>
+    <arg name="remote_rviz" default="false"/>
+    <arg name="obstacle_map" default="sml_planner_obstacles"/>
+    <arg name="initial_pose_x" default="-2.65488696"/>
+    <arg name="initial_pose_y" default="-1.64422277"/>
+    <arg name="initial_pose_a" default="1.57" />
+    <!-- wrt to map-->
 
     <!-- Start map server -->
     <node name="map_server" pkg="map_server" type="map_server" args="$(find svea_core)/maps/$(arg map).yaml" output="screen"/>
@@ -49,6 +50,11 @@
             state: [5.5, 3.85, 1.57, 0] # initial state (x, y, yaw)
             goal: [6.3, 8]
         </rosparam>
+    </node>
+
+    <!-- Run the costmap node -->
+    <node name="costmap_node" pkg="costmap_2d" type="costmap_2d_node">
+        <rosparam file="$(find svea_social_navigation)/config/costmap_params.yaml" command="load" ns="costmap" />
     </node>
     <!--
         state: [2.8, 3.1, 0.7853981633974483, 0] # initial state (x, y, yaw)
