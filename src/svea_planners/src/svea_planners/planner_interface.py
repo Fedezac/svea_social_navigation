@@ -2,6 +2,7 @@
 
 import rospy
 import numpy as np
+from copy import deepcopy
 from scipy.ndimage import gaussian_filter1d
 from svea_planners.gridmap_interface import GridMapInterface
 from svea_planners.path_interface import PathInterface
@@ -22,12 +23,13 @@ class PlannerInterface(object):
     _obs_margin = None
     _social_waypoints = None
 
-    def __init__(self, obs_margin=0.05, sigma = 7, smoothing_res=500, theta_threshold=0.03):
+    def __init__(self, obs_margin=0.05,  weight_data=0.5, weight_smooth=0.5, tolerance=0.000001, theta_threshold=0.03):
         self._obs_margin = obs_margin
 
         # Path smoothing stuff
-        self._smoothing_resolution = smoothing_res
-        self._sigma = sigma
+        self._weight_data = weight_data
+        self._weight_smooth = weight_smooth
+        self._tolerance = tolerance
 
         # Social waypoint extraction
         self._theta_threshold = theta_threshold
@@ -61,33 +63,36 @@ class PlannerInterface(object):
     def publish_rviz_path(self):
         self._path_interface.create_pose_path()
         self._path_interface.publish_rviz_path()
-    
+
     def _smooth_path(self, path):
         """
-        Function that smooth the computed path by Gaussian Filtering
-
-        :param path: retrieved path
-        :type path: list(float)
-        :return: smoothed path
-        :rtype: list(float)
+        Creates a smooth path for a n-dimensional series of coordinates.
+        Arguments:
+            path: List containing coordinates of a path
+            weight_data: Float, how much weight to update the data (alpha)
+            weight_smooth: Float, how much weight to smooth the coordinates (beta).
+            tolerance: Float, how much change per iteration is necessary to keep iterating.
+        Output:
+            new: List containing smoothed coordinates.
         """
-        path = np.array(path)
-        t = np.linspace(0, 1, np.shape(path)[0])
-        t2 = np.linspace(0, 1, self._smoothing_resolution)
+        new = deepcopy(path)
+        dims = len(path[0])
+        change = self._tolerance
 
-        x2 = np.interp(t2, t, path[:, 0])
-        y2 = np.interp(t2, t, path[:, 1])
+        while change >= self._tolerance:
+            change = 0.0
+            for i in range(1, len(new) - 1):
+                for j in range(dims):
 
-        x3 = gaussian_filter1d(x2, self._sigma)
-        y3 = gaussian_filter1d(y2, self._sigma)
+                    x_i = path[i][j]
+                    y_i, y_prev, y_next = new[i][j], new[i - 1][j], new[i + 1][j]
 
-        x4 = np.interp(t, t2, x3)
-        y4 = np.interp(t, t2, y3)
-        
-        smooth_path = np.array([x4, y4]).T
-        # If a more detailed path is needed
-        #smooth_path = np.array([x3, y3]).T
-        return smooth_path.tolist()
+                    y_i_saved = y_i
+                    y_i += self._weight_data * (x_i - y_i) + self._weight_smooth * (y_next + y_prev - (2 * y_i))
+                    new[i][j] = y_i
+
+                    change += abs(y_i - y_i_saved)
+        return new
 
     def get_points_path(self, granularity=None):
         """

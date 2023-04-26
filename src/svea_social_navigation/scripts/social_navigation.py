@@ -190,7 +190,7 @@ class SocialNavigation(object):
     def plan(self):
         debug = False
         
-        pi = PlannerInterface(obs_margin=0.07, sigma = 10, smoothing_res=500, theta_threshold=0.03)
+        pi = PlannerInterface(obs_margin=0.07, weight_data=0.5, weight_smooth=0.5, tolerance=0.000001, theta_threshold=0.03)
         pi.set_start([self.state.x, self.state.y])
         pi.set_goal([self.GOAL[0], self.GOAL[1]])
         pi.initialize_planner_world()
