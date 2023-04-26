@@ -36,7 +36,7 @@ class SimpleBicycleModel:
         state: Initial state of model, defaults to origin.
     """
 
-    L = 0.32
+    L = 0.324
     DELTA_MAX = 40*math.pi/180  # max steering angle [rad]
 
     TAU = 0.1 # gain for simulating SVEA's ESC

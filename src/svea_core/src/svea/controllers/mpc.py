@@ -99,9 +99,8 @@ class MPC(object):
             "print_time": False}
         s_opts = {"max_iter": 150,
                   "print_level": 1,
-                  "fixed_variable_treatment": "relax_bounds",
+                  "fixed_variable_treatment": "make_constraint",
                   "barrier_tol_factor": 1,
-                  "constr_viol_tol": 0.01
                   }
 
         self.opti.solver('ipopt', p_opts, s_opts)
@@ -138,11 +137,11 @@ class MPC(object):
             self.cost += self.state_diff[k].T @ self.Q[:reference_dimension, :reference_dimension] @ self.state_diff[k]
             # Compute angle diff as the heading difference between current heading angle of robot and angle between
             # robot's position and waypoint position
-            #!! self.angle_diff.append(self.x[-1, k] - casadi.arctan2((self.reference_state[1, k] - self.x[1, k]), (self.reference_state[0, k] - self.x[0, k])))
+            self.angle_diff.append(self.x[-1, k] - casadi.arctan2((self.reference_state[1, k] - self.x[1, k]), (self.reference_state[0, k] - self.x[0, k])))
             # In this way heading from current waypoint to next one, has to be computed for each waypoint (don't like it
             # much, but it is much more robust)
             #self.angle_diff.append(np.pi - casadi.norm_2(casadi.norm_2(self.x[-1, k] - self.reference_state[-1, k]) - np.pi))
-            self.angle_diff.append(self.reference_state[-1, k] - self.x[-1, k])
+            #self.angle_diff.append(self.reference_state[-1, k] - self.x[-1, k])
             self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
             if k < self.N:
                 # Weight and add to cost the control effort

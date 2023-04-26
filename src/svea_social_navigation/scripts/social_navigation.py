@@ -114,7 +114,7 @@ class SocialNavigation(object):
         # Define publisher for MPC predicted path
         self.pred_path_pub = rospy.Publisher("pred_path", Path, queue_size=1, latch=True)
 
-        # Initilize vehicle state
+        # Initialize vehicle state
         self.state = VehicleState(*self.STATE)
         self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
         self.last_state_time = None
@@ -190,7 +190,7 @@ class SocialNavigation(object):
     def plan(self):
         debug = False
         
-        pi = PlannerInterface()
+        pi = PlannerInterface(obs_margin=0.07, sigma = 10, smoothing_res=500, theta_threshold=0.03)
         pi.set_start([self.state.x, self.state.y])
         pi.set_goal([self.GOAL[0], self.GOAL[1]])
         pi.initialize_planner_world()
@@ -226,13 +226,16 @@ class SocialNavigation(object):
         self.pred_path_pub.publish(path)
 
         # Visualize data
-        self.data_handler.log_state(self.state)
+        if self.IS_SIM:
+            self.data_handler.log_state(self.sim_model.state)
+        else:
+            self.data_handler.log_state(self.state)
         self.data_handler.log_ctrl(steering, velocity, rospy.get_time())
         self.data_handler.update_target((self.path[self.waypoint_idx, 0], self.path[self.waypoint_idx, 1]))
         self.data_handler.visualize_data()
 
     def keep_alive(self):
-        distance = np.linalg.norm(np.array(self.GOAL) - np.array([self.state.x, self.state.y]))
+        distance = np.linalg.norm(np.array(self.GOAL) - np.array([self.x0[0], self.x0[1]]))
         return not (rospy.is_shutdown() or distance < self.GOAL_THRESH)
 
     def run(self):
@@ -248,6 +251,34 @@ class SocialNavigation(object):
         while self.keep_alive():
             self.spin()
         print('ENDING')
+
+    def spin_sim(self):
+        for i, p in enumerate(self.path):
+            while np.linalg.norm(self.x0[0:2] - p[0:2]) > self.GOAL_THRESH:
+                if i + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
+                    # TODO: safe way to have fake N points when getting closer to the end of the path 
+                    last_iteration_points = self.path[self.waypoint_idx:, :]
+                    while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
+                        last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
+                    u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T)
+                else:
+                    u, predicted_state = self.controller.get_ctrl(self.x0, self.path[i:i + self.WINDOW_LEN + 1, :].T)
+                velocity = u[0, 0]
+                steering = u[1, 0]
+                self.sim_model.update(steering, velocity, self.DELTA_TIME)
+                self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
+                self.waypoint_idx = i
+                self.traj.append([self.x0[0], self.x0[1]])
+                # Visualize data on RVIZ
+                self._visualize_data(predicted_state[0, :], predicted_state[1, :], velocity, steering)
+                plt.clf()
+                plt.plot(np.asarray(self.path)[:, 0], np.asarray(self.path)[:, 1], 'bo', alpha=0.3)
+                plt.plot(np.asarray(self.path)[self.waypoint_idx, 0], np.asarray(self.path)[self.waypoint_idx, 1], 'go', alpha=0.5)
+                plt.plot(np.asarray(self.traj)[:, 0], np.asarray(self.traj)[:, 1], 'r-', alpha=0.7)
+                plt.plot(np.asarray(predicted_state).T[:, 0], np.asarray(predicted_state).T[:, 1], 'y-')
+                plt.draw()
+                plt.pause(0.01)
+
 
     def spin(self):
         if not self.IS_SIM:

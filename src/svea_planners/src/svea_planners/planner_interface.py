@@ -21,12 +21,17 @@ class PlannerInterface(object):
     _path = None
     _obs_margin = None
     _social_waypoints = None
-    THETA_THRESHOLD = 0.03
 
-    def __init__(self, obs_margin=0.05, smoothing_res=500):
+    def __init__(self, obs_margin=0.05, sigma = 7, smoothing_res=500, theta_threshold=0.03):
         self._obs_margin = obs_margin
-        # Get smoothing resolution
-        self.smoothing_resolution = smoothing_res
+
+        # Path smoothing stuff
+        self._smoothing_resolution = smoothing_res
+        self._sigma = sigma
+
+        # Social waypoint extraction
+        self._theta_threshold = theta_threshold
+
         self._gridmap_interface = GridMapInterface()
         self._gridmap_interface.init_ros_subscribers()
         rospy.loginfo("Planning interface correctly initialized")
@@ -68,13 +73,13 @@ class PlannerInterface(object):
         """
         path = np.array(path)
         t = np.linspace(0, 1, np.shape(path)[0])
-        t2 = np.linspace(0, 1, self.smoothing_resolution)
+        t2 = np.linspace(0, 1, self._smoothing_resolution)
 
         x2 = np.interp(t2, t, path[:, 0])
         y2 = np.interp(t2, t, path[:, 1])
-        sigma = 7
-        x3 = gaussian_filter1d(x2, sigma)
-        y3 = gaussian_filter1d(y2, sigma)
+
+        x3 = gaussian_filter1d(x2, self._sigma)
+        y3 = gaussian_filter1d(y2, self._sigma)
 
         x4 = np.interp(t, t2, x3)
         y4 = np.interp(t, t2, y3)
@@ -121,7 +126,7 @@ class PlannerInterface(object):
                 # Get angle between them (first clip value of cos(theta) between -1.0 and 1.0)
                 theta = np.arccos(np.clip(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)), -1.0, 1.0))
                 # If angle is less then a certain threshold, then add current point to array of waypoints
-                if theta < self.THETA_THRESHOLD:
+                if theta < self._theta_threshold:
                     self._social_waypoints.append(p)
         return self._social_waypoints
           
