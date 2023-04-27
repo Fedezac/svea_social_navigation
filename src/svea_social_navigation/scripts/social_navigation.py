@@ -2,7 +2,6 @@
 # Plain python imports
 import numpy as np
 import rospy
-from matplotlib import pyplot as plt
 from copy import deepcopy
 
 # SVEA imports
