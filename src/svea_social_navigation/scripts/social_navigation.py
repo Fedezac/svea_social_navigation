@@ -15,6 +15,7 @@ from svea.interfaces import LocalizationInterface, ActuationInterface
 from svea_mocap.mocap import MotionCaptureInterface
 from svea.data import RVIZPathHandler
 from svea_planners.planner_interface import PlannerInterface
+from svea_social_navigation.apf import ArtificialPotentialField
 
 # ROS imports
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
@@ -95,7 +96,10 @@ class SocialNavigation(object):
     TARGET_VELOCITY = 0.2
     # TODO: set window length on the basis of travelled distance between each timestep (20 or 25 could be fine)
     WINDOW_LEN = 20
+    N_STATES = 4
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
+    K_R = 1000
+    K_A = 10
 
     def __init__(self):
         """
@@ -117,6 +121,7 @@ class SocialNavigation(object):
         # Initialize vehicle state
         self.state = VehicleState(*self.STATE)
         self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
+        self.predicted_state = np.full((self.N_STATES, self.WINDOW_LEN + 1), np.array([self.x0]).T)
         self.last_state_time = None
         # Publish initial pose
         publish_initialpose(self.state)
@@ -127,14 +132,17 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[5, 5, 50, 7],
+            Q=[5, 5, 50, 70],
             R=[1, 2],
+            S=[100],
             x_lb=[-100, -100, -0.5, -2*np.pi],
             x_ub=[100, 100, 0.6, 2*np.inf],
             u_lb=[-1, -np.deg2rad(40)],
             u_ub=[1.5, np.deg2rad(40)],
             verbose=False
         )
+        # Create APF object
+        self.apf = ArtificialPotentialField(svea_name=self.SVEA_NAME, k_r=self.K_R, k_a=self.K_A, window_len=self.WINDOW_LEN)
 
         # Instatiate RVIZPathHandler object if publishing to RVIZ
         self.data_handler = RVIZPathHandler()
@@ -245,13 +253,17 @@ class SocialNavigation(object):
         self.plan()
         self.waypoint_idx = 0
         self.traj = []
-        print(self.x0)
         # Spin until alive
         while self.keep_alive():
             self.spin()
+            rospy.sleep(0.1)
         print('ENDING')
 
     def spin(self):
+        """
+        Main method
+        """
+        # Get svea state
         if not self.IS_SIM:
             safe = self.localizer.is_ready
             # Wait for state from localization interface
@@ -260,6 +272,13 @@ class SocialNavigation(object):
         else:
             self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
             print(f'State: {self.x0}')
+    
+        # Get current repulsive force to which the svea is subject 
+        self.repulsive_forces = self.apf.get_repulsive_forces(self.predicted_state.T)
+        is_inf_force = any(f == -np.inf for f in self.repulsive_forces)
+        if is_inf_force: 
+            self.repulsive_forces[:] = 0
+        print(f'Repulsive force: {self.repulsive_forces}')
 
         # TODO: use lateral offset from path to get next waypoint
         while np.linalg.norm(self.x0[0:2] - self.path[self.waypoint_idx, 0:2]) < self.GOAL_THRESH and self.waypoint_idx < np.shape(self.path)[0] - 1:
@@ -274,9 +293,9 @@ class SocialNavigation(object):
             last_iteration_points = self.path[self.waypoint_idx:, :]
             while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
                 last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T)
+            u, self.predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.repulsive_forces)
         else:
-            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T)
+            u, self.predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.repulsive_forces)
 
         # Get optimal velocity and steering controls
         velocity = u[0, 0]
@@ -292,7 +311,7 @@ class SocialNavigation(object):
             self.sim_model.update(steering, velocity, self.DELTA_TIME)
             
         # Visualize data on RVIZ
-        self._visualize_data(predicted_state[0, :], predicted_state[1, :], velocity, steering)
+        self._visualize_data(self.predicted_state[0, :], self.predicted_state[1, :], velocity, steering)
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@ import casadi
 from svea.models.generic_mpc import GenericModel
 
 class MPC(object):
-    def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, Q, R, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
+    def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
         Init method for MPC class
 
@@ -41,6 +41,7 @@ class MPC(object):
         # Get weights matrices
         self.Q = casadi.diag(Q)
         self.R = casadi.diag(R)
+        self.S = casadi.diag(S)
         # Get number of controls to be predictes 
         self.N = N
         # Get initial state
@@ -62,6 +63,7 @@ class MPC(object):
         self.x = None
         self.u = None
         self.reference_state = None
+        self.obs_forces = None
 
         # Cost function related varirables
         self.state_diff = []
@@ -119,9 +121,9 @@ class MPC(object):
         """
         # Define optimizer parameters (constants)
         # Rows as the number of state variables to be kept into accout, columns how many timesteps
-        # TODO: 3 since only x, y positions and v are used as a reference
         self.reference_state = self.opti.parameter(self.n_states, self.N + 1)
         self.initial_state = self.opti.parameter(self.n_states, 1)
+        self.obs_forces = self.opti.parameter(1, self.N + 1)
 
     def _optimizer_cost_function(self):
         """
@@ -143,6 +145,10 @@ class MPC(object):
             #self.angle_diff.append(np.pi - casadi.norm_2(casadi.norm_2(self.x[-1, k] - self.reference_state[-1, k]) - np.pi))
             #self.angle_diff.append(self.reference_state[-1, k] - self.x[-1, k])
             self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
+
+            # Add cost related to obstacles
+            self.cost += self.S * self.obs_forces[k]
+
             if k < self.N:
                 # Weight and add to cost the control effort
                 self.cost += self.u[:, k].T @ self.R @ self.u[:, k]
@@ -167,7 +173,7 @@ class MPC(object):
         # Set initial state as optimizer constraint
         self.opti.subject_to(self.x[:, 0] == self.initial_state)
 
-    def get_ctrl(self, initial_state, reference_state):
+    def get_ctrl(self, initial_state, reference_state, obs_forces):
         """
         Function to solve optimizer problem and get control from MPC, given initial state and reference state
 
@@ -180,9 +186,8 @@ class MPC(object):
         """
         # Set optimizer values for both initial state and reference states
         self.opti.set_value(self.initial_state, initial_state)
-        #print(self.reference_state)
-        #print(reference_state)
         self.opti.set_value(self.reference_state, reference_state)
+        self.opti.set_value(self.obs_forces, obs_forces)
         # Solve optimizer problem if it is feasible
         try: 
             self.opti.solve()
@@ -203,6 +208,8 @@ class MPC(object):
             for angle, state in zip(self.angle_diff, self.state_diff):
                 print(f'Angle diff: {self.opti.debug.value(angle)}')
                 print(f'State diff: {self.opti.debug.value(state)}')
+        print(f'Cost: {self.opti.debug.value(self.cost)}')
+        print(f'Repulsive forces: {self.opti.debug.value(self.obs_forces)}')
         # Get first control generated (not predicted ones)
         u_optimal = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         # Get new predicted position
