@@ -3,7 +3,10 @@ import casadi
 from svea.models.generic_mpc import GenericModel
 
 class MPC(object):
-    def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
+    # Repulsive force coefficient
+    K_R = 1
+
+    def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_obstacles, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
         Init method for MPC class
 
@@ -28,6 +31,9 @@ class MPC(object):
         # Get model's number of states and inputs
         self.n_states = len(self.model.dae.x)
         self.n_inputs = len(self.model.dae.u)
+
+        # Get max number of obstacles
+        self.n_obs = n_obstacles
 
         # Check that there are enough lower and upper bounds for each state/input variable
         assert self.n_states == len(x_lb), f'Number of lower bounds does not correspond to states number, number of states: {self.n_states}, number of lower bounds: {len(x_lb)}'
@@ -63,12 +69,15 @@ class MPC(object):
         self.x = None
         self.u = None
         self.reference_state = None
-        self.obs_forces = None
+        self.obs_position = None
 
         # Cost function related varirables
         self.state_diff = []
         self.angle_diff = []
+        self.F_r = []
         self.cost = 0
+
+        self.exps = []
 
         # Verbose option
         self.verbose = verbose
@@ -123,7 +132,7 @@ class MPC(object):
         # Rows as the number of state variables to be kept into accout, columns how many timesteps
         self.reference_state = self.opti.parameter(self.n_states, self.N + 1)
         self.initial_state = self.opti.parameter(self.n_states, 1)
-        self.obs_forces = self.opti.parameter(1, self.N + 1)
+        self.obs_position = self.opti.parameter(2, self.n_obs)
 
     def _optimizer_cost_function(self):
         """
@@ -146,8 +155,17 @@ class MPC(object):
             #self.angle_diff.append(self.reference_state[-1, k] - self.x[-1, k])
             self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
 
-            # Add cost related to obstacles
-            self.cost += self.S * self.obs_forces[k]
+            # TODO: always loops for 400
+            x_min = casadi.mmin(self.obs_position[0, :])
+            x_max = casadi.mmax(self.obs_position[0, :])
+            
+            index = casadi.find(self.obs_position[0, :] == x_min)
+            # Compute exponential of the repulsive force
+            exp = casadi.sum1(casadi.sqrt((self.x[0, k] - self.obs_position[0, 0:index]) ** 2 + (self.x[1, k] - self.obs_position[1, 0:index]) ** 2))
+            self.exps.append(exp)
+            # Compute repulsive force
+            self.F_r.append(0.5 * self.K_R * casadi.exp(-exp))
+            self.cost += self.S * self.F_r[k]
 
             if k < self.N:
                 # Weight and add to cost the control effort
@@ -173,7 +191,10 @@ class MPC(object):
         # Set initial state as optimizer constraint
         self.opti.subject_to(self.x[:, 0] == self.initial_state)
 
-    def get_ctrl(self, initial_state, reference_state, obs_forces):
+    def set_n_obs(self, n_obs):
+        self.n_obs = n_obs
+
+    def get_ctrl(self, initial_state, reference_state, obs_pos):
         """
         Function to solve optimizer problem and get control from MPC, given initial state and reference state
 
@@ -187,7 +208,7 @@ class MPC(object):
         # Set optimizer values for both initial state and reference states
         self.opti.set_value(self.initial_state, initial_state)
         self.opti.set_value(self.reference_state, reference_state)
-        self.opti.set_value(self.obs_forces, obs_forces)
+        self.opti.set_value(self.obs_position, obs_pos)
         # Solve optimizer problem if it is feasible
         try: 
             self.opti.solve()
@@ -195,9 +216,10 @@ class MPC(object):
             #print(f'Unfeasible state: {self.opti.debug.value(self.x.T)}')
             #print(f'Unfeasible control sequence: {self.opti.value(self.u.T)}')
             print(f'Cost: {self.opti.debug.value(self.cost)}')
-            for angle, state in zip(self.angle_diff, self.state_diff):
+            for angle, state, r_force in zip(self.angle_diff, self.state_diff, self.F_r):
                 print(f'Angle diff: {self.opti.debug.value(angle)}')
                 print(f'State diff: {self.opti.debug.value(state)}')
+                print(f'Repulsive force: {self.opti.debug.value(r_force)}')
             self.opti.debug.show_infeasibilities()
             #self.opti.debug.x_describe()
             #self.opti.debug.g_describe()
@@ -205,11 +227,17 @@ class MPC(object):
         if self.verbose:
             #print(f'Predicted control sequence: {self.opti.value(self.u[:, :])}')
             print(f'Cost: {self.opti.debug.value(self.cost)}')
-            for angle, state in zip(self.angle_diff, self.state_diff):
+            for angle, state, r_force in zip(self.angle_diff, self.state_diff, self.F_r):
                 print(f'Angle diff: {self.opti.debug.value(angle)}')
                 print(f'State diff: {self.opti.debug.value(state)}')
-        print(f'Cost: {self.opti.debug.value(self.cost)}')
-        print(f'Repulsive forces: {self.opti.debug.value(self.obs_forces)}')
+                print(f'Repulsive force: {self.opti.debug.value(r_force)}')
+        for r_force in self.F_r:
+            print(f'MPC Repulsive force: {self.opti.debug.value(r_force)}')
+        #for e in self.exps:
+        #    print(f'MPC EXPS: {self.opti.debug.value(e)}')
+        print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
+        #print(f'MPC State: {self.opti.debug.value(self.x)}')
+        #print(f'MPC Obstacles positions: {self.opti.debug.value(self.obs_position[:, 0:self.n_obs])}')
         # Get first control generated (not predicted ones)
         u_optimal = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         # Get new predicted position
