@@ -4,7 +4,7 @@ from svea.models.generic_mpc import GenericModel
 
 class MPC(object):
     # Repulsive force coefficient
-    K_R = 1
+    K_R = 100
 
     def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_obstacles, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
@@ -155,17 +155,32 @@ class MPC(object):
             #self.angle_diff.append(self.reference_state[-1, k] - self.x[-1, k])
             self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
 
-            # TODO: always loops for 400
-            x_min = casadi.mmin(self.obs_position[0, :])
-            x_max = casadi.mmax(self.obs_position[0, :])
-            
-            index = casadi.find(self.obs_position[0, :] == x_min)
-            # Compute exponential of the repulsive force
-            exp = casadi.sum1(casadi.sqrt((self.x[0, k] - self.obs_position[0, 0:index]) ** 2 + (self.x[1, k] - self.obs_position[1, 0:index]) ** 2))
-            self.exps.append(exp)
-            # Compute repulsive force
+            exp = 0
+            for i in range(self.n_obs):
+                exp += casadi.if_else(self.obs_position[0, i] != -100000.0, casadi.sum1(casadi.sqrt((self.x[0, k] - self.obs_position[0, i]) ** 2 + (self.x[1, k] - self.obs_position[1, i]) ** 2)), 0, True)
+            exp = casadi.if_else(exp == 0, -100, exp)
             self.F_r.append(0.5 * self.K_R * casadi.exp(-exp))
             self.cost += self.S * self.F_r[k]
+
+            # TODO: always loops for 400
+            #self.x_max = casadi.mmax(self.obs_position[0, :])
+            #x_max = self.x_max
+            ## If obstacles have been detected
+            #self.index = casadi.((casadi.find(self.obs_position[0, :] == -100000.0)))
+            #index = self.index
+            #exp = casadi.if_else(x_max != -100000.0, casadi.sum1(casadi.sqrt((self.x[0, k] - self.obs_position[0, 0:index]) ** 2 + (self.x[1, k] - self.obs_position[1, 0:index]) ** 2)), -100000, True)
+            #self.exps.append(exp)
+            ## Compute repulsive force
+            #self.F_r.append(0.5 * self.K_R * casadi.exp(-exp))
+            #self.cost += self.S * self.F_r[k]
+            
+            #index = casadi.find(self.obs_position[0, :] == x_min)
+            ## Compute exponential of the repulsive force
+            #exp = casadi.sum1(casadi.sqrt((self.x[0, k] - self.obs_position[0, 0:index]) ** 2 + (self.x[1, k] - self.obs_position[1, 0:index]) ** 2))
+            #self.exps.append(exp)
+            ## Compute repulsive force
+            #self.F_r.append(0.5 * self.K_R * casadi.exp(-exp))
+            #self.cost += self.S * self.F_r[k]
 
             if k < self.N:
                 # Weight and add to cost the control effort
@@ -237,7 +252,6 @@ class MPC(object):
         #    print(f'MPC EXPS: {self.opti.debug.value(e)}')
         print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
         #print(f'MPC State: {self.opti.debug.value(self.x)}')
-        #print(f'MPC Obstacles positions: {self.opti.debug.value(self.obs_position[:, 0:self.n_obs])}')
         # Get first control generated (not predicted ones)
         u_optimal = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         # Get new predicted position
