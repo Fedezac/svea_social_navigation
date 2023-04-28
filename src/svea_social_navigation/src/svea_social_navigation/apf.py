@@ -96,7 +96,6 @@ class ArtificialPotentialFieldHelper(object):
             obs_positions = np.zeros(np.shape(obs_indexes))
             obs_positions[:, 1] = obs_indexes[:, 0] * self._map_resolution + self._map_y
             obs_positions[:, 0] = obs_indexes[:, 1] * self._map_resolution + self._map_x
-            print(f'APF : {obs_positions}')
             return obs_positions
         else:
             return None

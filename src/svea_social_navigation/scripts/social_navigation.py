@@ -95,7 +95,7 @@ class SocialNavigation(object):
     GOAL_THRESH = 0.1
     TARGET_VELOCITY = 0.2
     # TODO: set window length on the basis of travelled distance between each timestep (20 or 25 could be fine)
-    WINDOW_LEN = 10
+    WINDOW_LEN = 20
     N_STATES = 4
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
     K_R = 1000
@@ -162,9 +162,9 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[5, 5, 50, 7],
-            R=[1, 2],
-            S=[10],
+            Q=[.1, .1, .1, .1],
+            R=[1, 1],
+            S=[1],
             x_lb=[-100, -100, -0.5, -2*np.pi],
             x_ub=[100, 100, 0.6, 2*np.inf],
             u_lb=[-1, -np.deg2rad(40)],
@@ -260,7 +260,7 @@ class SocialNavigation(object):
         # Spin until alive
         while self.keep_alive():
             self.spin()
-            #rospy.sleep(0.1)
+            rospy.sleep(.5)
         print('ENDING')
 
     def spin(self):
@@ -284,7 +284,6 @@ class SocialNavigation(object):
         # If obstacles have been detected, insert them into the array
         if len(obs) > 0:
             self.local_obstacles[:, 0:np.shape(obs)[1]] = obs
-        print(self.local_obstacles[:, 0:np.shape(obs)[1]])
 
         # TODO: use lateral offset from path to get next waypoint
         while np.linalg.norm(self.x0[0:2] - self.path[self.waypoint_idx, 0:2]) < self.GOAL_THRESH and self.waypoint_idx < np.shape(self.path)[0] - 1:
@@ -293,15 +292,16 @@ class SocialNavigation(object):
             self.waypoint_idx += 1
 
         # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
-        # final goal
-        if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
-            # TODO: safe way to have fake N points when getting closer to the end of the path 
-            last_iteration_points = self.path[self.waypoint_idx:, :]
-            while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
-                last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-            u, self.predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
-        else:
-            u, self.predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
+        ## final goal
+        #if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
+        #    # TODO: safe way to have fake N points when getting closer to the end of the path 
+        #    last_iteration_points = self.path[self.waypoint_idx:, :]
+        #    while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
+        #        last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
+        #    u, self.predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
+        #else:
+        #    u, self.predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
+        u, self.predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx, :].T, self.local_obstacles)
 
         # Get optimal velocity and steering controls
         velocity = u[0, 0]

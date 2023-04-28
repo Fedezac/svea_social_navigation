@@ -4,7 +4,7 @@ from svea.models.generic_mpc import GenericModel
 
 class MPC(object):
     # Repulsive force coefficient
-    K_R = 100
+    K_R = 1000
 
     def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_obstacles, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
@@ -77,8 +77,6 @@ class MPC(object):
         self.F_r = []
         self.cost = 0
 
-        self.exps = []
-
         # Verbose option
         self.verbose = verbose
 
@@ -130,7 +128,7 @@ class MPC(object):
         """
         # Define optimizer parameters (constants)
         # Rows as the number of state variables to be kept into accout, columns how many timesteps
-        self.reference_state = self.opti.parameter(self.n_states, self.N + 1)
+        self.reference_state = self.opti.parameter(self.n_states, 1)
         self.initial_state = self.opti.parameter(self.n_states, 1)
         self.obs_position = self.opti.parameter(2, self.n_obs)
 
@@ -144,41 +142,23 @@ class MPC(object):
         for k in range(self.N + 1):
             # Planned trajectory should be as close as possible to reference one
             # TODO: is it ref - actual or actual - ref (or it does not matter since we weight it squared)?
-            self.state_diff.append(self.reference_state[:reference_dimension, k] - self.x[:reference_dimension, k])
+            self.state_diff.append(self.reference_state[:reference_dimension] - self.x[:reference_dimension, k])
             self.cost += self.state_diff[k].T @ self.Q[:reference_dimension, :reference_dimension] @ self.state_diff[k]
+            #self.state_diff.append(self.reference_state[2, k] - self.x[2, k])
+            #self.cost += self.state_diff[k]**2 * self.Q[2,2]
             # Compute angle diff as the heading difference between current heading angle of robot and angle between
             # robot's position and waypoint position
-            self.angle_diff.append(self.x[-1, k] - casadi.arctan2((self.reference_state[1, k] - self.x[1, k]), (self.reference_state[0, k] - self.x[0, k])))
+            self.angle_diff.append(self.x[-1, k] - casadi.arctan2((self.reference_state[1] - self.x[1, k]), (self.reference_state[0] - self.x[0, k])))
             # In this way heading from current waypoint to next one, has to be computed for each waypoint (don't like it
             # much, but it is much more robust)
             #self.angle_diff.append(np.pi - casadi.norm_2(casadi.norm_2(self.x[-1, k] - self.reference_state[-1, k]) - np.pi))
             #self.angle_diff.append(self.reference_state[-1, k] - self.x[-1, k])
             self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
 
-            exp = 0
-            for i in range(self.n_obs):
-                exp += casadi.if_else(self.obs_position[0, i] != -100000.0, casadi.sum1(casadi.sqrt((self.x[0, k] - self.obs_position[0, i]) ** 2 + (self.x[1, k] - self.obs_position[1, i]) ** 2)), 0, True)
-            exp = casadi.if_else(exp == 0, -100, exp)
-            self.F_r.append(0.5 * self.K_R * casadi.exp(-exp))
-            self.cost += self.S * self.F_r[k]
-
-            # TODO: always loops for 400
-            #self.x_max = casadi.mmax(self.obs_position[0, :])
-            #x_max = self.x_max
-            ## If obstacles have been detected
-            #self.index = casadi.((casadi.find(self.obs_position[0, :] == -100000.0)))
-            #index = self.index
-            #exp = casadi.if_else(x_max != -100000.0, casadi.sum1(casadi.sqrt((self.x[0, k] - self.obs_position[0, 0:index]) ** 2 + (self.x[1, k] - self.obs_position[1, 0:index]) ** 2)), -100000, True)
-            #self.exps.append(exp)
-            ## Compute repulsive force
-            #self.F_r.append(0.5 * self.K_R * casadi.exp(-exp))
-            #self.cost += self.S * self.F_r[k]
-            
-            #index = casadi.find(self.obs_position[0, :] == x_min)
-            ## Compute exponential of the repulsive force
-            #exp = casadi.sum1(casadi.sqrt((self.x[0, k] - self.obs_position[0, 0:index]) ** 2 + (self.x[1, k] - self.obs_position[1, 0:index]) ** 2))
-            #self.exps.append(exp)
-            ## Compute repulsive force
+            #exp = 0
+            #for i in range(self.n_obs):
+            #    exp += casadi.if_else(self.obs_position[0, i] != -100000.0, casadi.sqrt((self.x[0, k] - self.obs_position[0, i]) ** 2 + (self.x[1, k] - self.obs_position[1, i]) ** 2), 0, True)
+            #exp = casadi.if_else(exp == 0, 100, exp)
             #self.F_r.append(0.5 * self.K_R * casadi.exp(-exp))
             #self.cost += self.S * self.F_r[k]
 
@@ -246,10 +226,8 @@ class MPC(object):
                 print(f'Angle diff: {self.opti.debug.value(angle)}')
                 print(f'State diff: {self.opti.debug.value(state)}')
                 print(f'Repulsive force: {self.opti.debug.value(r_force)}')
-        for r_force in self.F_r:
-            print(f'MPC Repulsive force: {self.opti.debug.value(r_force)}')
-        #for e in self.exps:
-        #    print(f'MPC EXPS: {self.opti.debug.value(e)}')
+        #for r_force in self.F_r:
+        #    print(f'MPC Repulsive force: {self.opti.debug.value(r_force)}')
         print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
         #print(f'MPC State: {self.opti.debug.value(self.x)}')
         # Get first control generated (not predicted ones)
