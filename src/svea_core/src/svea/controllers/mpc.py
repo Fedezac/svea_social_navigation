@@ -128,7 +128,7 @@ class MPC(object):
         """
         # Define optimizer parameters (constants)
         # Rows as the number of state variables to be kept into accout, columns how many timesteps
-        self.reference_state = self.opti.parameter(self.n_states, 1)
+        self.reference_state = self.opti.parameter(self.n_states, self.N + 1)
         self.initial_state = self.opti.parameter(self.n_states, 1)
         self.obs_position = self.opti.parameter(2, self.n_obs)
 
@@ -142,25 +142,37 @@ class MPC(object):
         for k in range(self.N + 1):
             # Planned trajectory should be as close as possible to reference one
             # TODO: is it ref - actual or actual - ref (or it does not matter since we weight it squared)?
-            self.state_diff.append(self.reference_state[:reference_dimension] - self.x[:reference_dimension, k])
+            self.state_diff.append(self.reference_state[:reference_dimension, k] - self.x[:reference_dimension, k])
             self.cost += self.state_diff[k].T @ self.Q[:reference_dimension, :reference_dimension] @ self.state_diff[k]
             #self.state_diff.append(self.reference_state[2, k] - self.x[2, k])
             #self.cost += self.state_diff[k]**2 * self.Q[2,2]
             # Compute angle diff as the heading difference between current heading angle of robot and angle between
             # robot's position and waypoint position
-            self.angle_diff.append(self.x[-1, k] - casadi.arctan2((self.reference_state[1] - self.x[1, k]), (self.reference_state[0] - self.x[0, k])))
+            self.angle_diff.append(self.x[-1, k] - casadi.arctan2((self.reference_state[1, k] - self.x[1, k]), (self.reference_state[0, k] - self.x[0, k])))
             # In this way heading from current waypoint to next one, has to be computed for each waypoint (don't like it
             # much, but it is much more robust)
             #self.angle_diff.append(np.pi - casadi.norm_2(casadi.norm_2(self.x[-1, k] - self.reference_state[-1, k]) - np.pi))
             #self.angle_diff.append(self.reference_state[-1, k] - self.x[-1, k])
             self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
 
-            #exp = 0
-            #for i in range(self.n_obs):
-            #    exp += casadi.if_else(self.obs_position[0, i] != -100000.0, casadi.sqrt((self.x[0, k] - self.obs_position[0, i]) ** 2 + (self.x[1, k] - self.obs_position[1, i]) ** 2), 0, True)
-            #exp = casadi.if_else(exp == 0, 100, exp)
-            #self.F_r.append(0.5 * self.K_R * casadi.exp(-exp))
-            #self.cost += self.S * self.F_r[k]
+            j_obs = 0
+            for i in range(self.n_obs):
+                j_obs += (2 * self.x[2, k]) / ((self.obs_position[0, i] - self.x[0, k])**2 + (self.obs_position[1, i] - self.x[1, k])**2 + 0.0001)
+            self.F_r.append(j_obs)
+            self.cost += self.S * self.F_r[k]
+
+            """rep_force = 0
+            for i in range(self.n_obs):
+                rep_force += 2 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1, i]) ** 2 / 2)))
+            self.F_r.append(rep_force)
+            self.cost += self.S * self.F_r[k]
+            exp = 0
+            for i in range(self.n_obs):
+                exp += casadi.if_else(self.obs_position[0, i] != -100000.0, casadi.sqrt((self.x[0, k] - self.obs_position[0, i]) ** 2 + (self.x[1, k] - self.obs_position[1, i]) ** 2), 0, True)
+            exp = casadi.if_else(exp == 0, 100, exp)
+            self.F_r.append(0.5 * self.K_R * casadi.exp(-exp))
+            self.cost += self.S * self.F_r[k]"""
+            
 
             if k < self.N:
                 # Weight and add to cost the control effort
@@ -185,9 +197,6 @@ class MPC(object):
         self.opti.subject_to(self.opti.bounded(self.u_lb, self.u, self.u_ub))
         # Set initial state as optimizer constraint
         self.opti.subject_to(self.x[:, 0] == self.initial_state)
-
-    def set_n_obs(self, n_obs):
-        self.n_obs = n_obs
 
     def get_ctrl(self, initial_state, reference_state, obs_pos):
         """
@@ -229,7 +238,9 @@ class MPC(object):
         #for r_force in self.F_r:
         #    print(f'MPC Repulsive force: {self.opti.debug.value(r_force)}')
         print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
-        #print(f'MPC State: {self.opti.debug.value(self.x)}')
+        print(f'MPC State: {self.opti.debug.value(self.x)}')
+        print(f'MPC Reference: {self.opti.debug.value(self.reference_state)}')
+        print(f'MPC Obs: {self.opti.debug.value(self.obs_position)}')
         # Get first control generated (not predicted ones)
         u_optimal = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         # Get new predicted position

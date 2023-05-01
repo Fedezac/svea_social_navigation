@@ -50,8 +50,8 @@
         <param name="remote_rviz" value="$(arg remote_rviz)" />
         <!-- Waypoints for floo2 map -->
         <rosparam>
-            state: [5.5, 3.85, 1.57, 0] # initial state (x, y, yaw)
-            goal: [6.3, 8]
+            state: [7.6, 2.9, 1.57, 0] # initial state (x, y, yaw)
+            goal: [7.6, 6.8]
         </rosparam>
     </node>
 
