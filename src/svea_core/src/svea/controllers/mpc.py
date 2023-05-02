@@ -148,18 +148,18 @@ class MPC(object):
             #self.cost += self.state_diff[k]**2 * self.Q[2,2]
             # Compute angle diff as the heading difference between current heading angle of robot and angle between
             # robot's position and waypoint position
-            self.angle_diff.append(self.x[-1, k] - casadi.arctan2((self.reference_state[1, k] - self.x[1, k]), (self.reference_state[0, k] - self.x[0, k])))
+            #self.angle_diff.append(self.x[-1, k] - casadi.arctan2((self.reference_state[1, k] - self.x[1, k]), (self.reference_state[0, k] - self.x[0, k])))
             # In this way heading from current waypoint to next one, has to be computed for each waypoint (don't like it
             # much, but it is much more robust)
             #self.angle_diff.append(np.pi - casadi.norm_2(casadi.norm_2(self.x[-1, k] - self.reference_state[-1, k]) - np.pi))
-            #self.angle_diff.append(self.reference_state[-1, k] - self.x[-1, k])
+            self.angle_diff.append(self.reference_state[-1, k] - self.x[-1, k])
             self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
 
-            j_obs = 0
-            for i in range(self.n_obs):
-                j_obs += (2 * self.x[2, k]) / ((self.obs_position[0, i] - self.x[0, k])**2 + (self.obs_position[1, i] - self.x[1, k])**2 + 0.0001)
-            self.F_r.append(j_obs)
-            self.cost += self.S * self.F_r[k]
+            #j_obs = 0
+            #for i in range(self.n_obs):
+            #    j_obs += (2 * self.x[2, k]) / ((self.obs_position[0, i] - self.x[0, k])**2 + (self.obs_position[1, i] - self.x[1, k])**2 + 0.0001)
+            #self.F_r.append(j_obs)
+            #self.cost += self.S * self.F_r[k]
 
             """rep_force = 0
             for i in range(self.n_obs):
@@ -237,10 +237,10 @@ class MPC(object):
                 print(f'Repulsive force: {self.opti.debug.value(r_force)}')
         #for r_force in self.F_r:
         #    print(f'MPC Repulsive force: {self.opti.debug.value(r_force)}')
-        print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
-        print(f'MPC State: {self.opti.debug.value(self.x)}')
-        print(f'MPC Reference: {self.opti.debug.value(self.reference_state)}')
-        print(f'MPC Obs: {self.opti.debug.value(self.obs_position)}')
+        #print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
+        #print(f'MPC State: {self.opti.debug.value(self.x)}')
+        #print(f'MPC Reference: {self.opti.debug.value(self.reference_state)}')
+        #print(f'MPC Obs: {self.opti.debug.value(self.obs_position)}')
         # Get first control generated (not predicted ones)
         u_optimal = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         # Get new predicted position

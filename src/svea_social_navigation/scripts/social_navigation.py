@@ -95,7 +95,7 @@ class SocialNavigation(object):
     GOAL_THRESH = 0.1
     TARGET_VELOCITY = 0.2
     # TODO: set window length on the basis of travelled distance between each timestep (20 or 25 could be fine)
-    WINDOW_LEN = 10
+    WINDOW_LEN = 20
     N_STATES = 4
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
     K_R = 1000
@@ -162,8 +162,8 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[5, 5, 50, 7],
-            R=[1, 2],
+            Q=[5, 5, 50, 30],
+            R=[1, 10],
             S=[1],
             x_lb=[-100, -100, -0.5, -2*np.pi],
             x_ub=[100, 100, 0.6, 2*np.inf],
@@ -275,7 +275,7 @@ class SocialNavigation(object):
             self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
         else:
             self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
-            print(f'State: {self.x0}')
+            #print(f'State: {self.x0}')
     
         # Fill obstacle array with own position (so that repulsive force is 0)
         self.local_obstacles = np.full((2, self.apf.get_map_dimensions()[0] * self.apf.get_map_dimensions()[1]), np.array([[-100000.0, -100000.0]]).T)
@@ -285,11 +285,9 @@ class SocialNavigation(object):
         if len(obs) > 0:
             self.local_obstacles[:, 0:np.shape(obs)[1]] = obs
 
-        # TODO: use lateral offset from path to get next waypoint
-        while np.linalg.norm(self.x0[0:2] - self.path[self.waypoint_idx, 0:2]) < self.GOAL_THRESH and self.waypoint_idx < np.shape(self.path)[0] - 1:
-            print(f'SWITCHING TO NEXT WAYPOINT {self.path[self.waypoint_idx, :]}')
-            print()
-            self.waypoint_idx += 1
+        # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of
+        # index out of bounds
+        self.waypoint_idx = np.minimum(np.argmin(np.linalg.norm(self.path[:, 0:2] - np.array([self.x0[0], self.x0[1]]), axis=1)) + 1, np.shape(self.path)[0] - 1)
 
         # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
         # final goal
@@ -300,12 +298,12 @@ class SocialNavigation(object):
                 last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
             u, self.predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
         else:
-            u, self.predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
+            u, self.predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx+ self.WINDOW_LEN + 1, :].T, self.local_obstacles)
 
         # Get optimal velocity and steering controls
         velocity = u[0, 0]
         steering = u[1, 0]
-        print(f'Optimal control: {velocity, steering}')
+        #print(f'Optimal control: {velocity, steering}')
         
         # Send control to actuator interface
         if not self.IS_SIM and safe:
