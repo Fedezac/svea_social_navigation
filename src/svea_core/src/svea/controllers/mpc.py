@@ -52,6 +52,7 @@ class MPC(object):
         self.N = N
         # Get initial state
         self.initial_state = self.model.initial_state
+        
 
         # Get states lower and upped bounds
         self.x_lb = casadi.DM(x_lb)
@@ -68,7 +69,7 @@ class MPC(object):
         self.opti = None
         self.x = None
         self.u = None
-        self.reference_state = None
+        self.reference_state = casadi.DM.zeros(self.n_states, 1)
         self.obs_position = None
 
         # Cost function related varirables
@@ -121,6 +122,8 @@ class MPC(object):
         # Define optimizer variables
         self.x = self.opti.variable(self.n_states, self.N + 1)
         self.u = self.opti.variable(self.n_inputs, self.N)
+        # Slack variable
+        #self.slack = self.opti.variable(self.n_states, 1)
 
     def _optimizer_parameters(self):
         """
@@ -128,7 +131,7 @@ class MPC(object):
         """
         # Define optimizer parameters (constants)
         # Rows as the number of state variables to be kept into accout, columns how many timesteps
-        self.reference_state = self.opti.parameter(self.n_states, self.N + 1)
+        self.reference_state = self.opti.parameter(self.n_states, 1)
         self.initial_state = self.opti.parameter(self.n_states, 1)
         self.obs_position = self.opti.parameter(2, self.n_obs)
 
@@ -137,12 +140,14 @@ class MPC(object):
         Method used to set optimizer cost function
         """
         # TODO: remove arctan2 that causes problems during the optimization
+        self.cost = 0
         # Extract dimension of reference state (every state variable minus the heading)
         reference_dimension = np.shape(self.reference_state)[0] - 1
+        reference_dimension = 3
         for k in range(self.N + 1):
             # Planned trajectory should be as close as possible to reference one
             # TODO: is it ref - actual or actual - ref (or it does not matter since we weight it squared)?
-            self.state_diff.append(self.reference_state[:reference_dimension, k] - self.x[:reference_dimension, k])
+            self.state_diff.append(self.x[:reference_dimension, k] - self.reference_state[:reference_dimension, 0])
             self.cost += self.state_diff[k].T @ self.Q[:reference_dimension, :reference_dimension] @ self.state_diff[k]
             #self.state_diff.append(self.reference_state[2, k] - self.x[2, k])
             #self.cost += self.state_diff[k]**2 * self.Q[2,2]
@@ -152,8 +157,8 @@ class MPC(object):
             # In this way heading from current waypoint to next one, has to be computed for each waypoint (don't like it
             # much, but it is much more robust)
             #self.angle_diff.append(np.pi - casadi.norm_2(casadi.norm_2(self.x[-1, k] - self.reference_state[-1, k]) - np.pi))
-            self.angle_diff.append(self.reference_state[-1, k] - self.x[-1, k])
-            self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
+            #self.angle_diff.append(self.reference_state[-1, 0] - self.x[-1, k])
+            #self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
 
             #j_obs = 0
             #for i in range(self.n_obs):
@@ -177,6 +182,8 @@ class MPC(object):
             if k < self.N:
                 # Weight and add to cost the control effort
                 self.cost += self.u[:, k].T @ self.R @ self.u[:, k]
+        # Add slack variable to the cost
+        #self.cost += 1e2 * self.slack.T @ self.slack
 
         # Set cost function for the optimizer
         self.opti.minimize(self.cost)
@@ -190,13 +197,15 @@ class MPC(object):
             # Generate next state given the control 
             x_next, _ = self.model.f(self.x[:, t], self.u[:, t], apply_input_noise=self.apply_input_noise, apply_state_noise=self.apply_state_noise)
             self.opti.subject_to(self.x[:, t + 1] == x_next)
+            # With slack variable
+            #self.opti.subject_to(self.x[:, t + 1] == x_next + self.slack)
 
         # Set state bounds as optimizer constraints
         self.opti.subject_to(self.opti.bounded(self.x_lb, self.x, self.x_ub))
         # Set input bounds as optimizer constraints
         self.opti.subject_to(self.opti.bounded(self.u_lb, self.u, self.u_ub))
         # Set initial state as optimizer constraint
-        self.opti.subject_to(self.x[:, 0] == self.initial_state)
+        self.opti.subject_to(self.x[:, [0]] == self.initial_state)
 
     def get_ctrl(self, initial_state, reference_state, obs_pos):
         """
@@ -217,8 +226,6 @@ class MPC(object):
         try: 
             self.opti.solve()
         except RuntimeError as e:
-            #print(f'Unfeasible state: {self.opti.debug.value(self.x.T)}')
-            #print(f'Unfeasible control sequence: {self.opti.value(self.u.T)}')
             print(f'Cost: {self.opti.debug.value(self.cost)}')
             for angle, state, r_force in zip(self.angle_diff, self.state_diff, self.F_r):
                 print(f'Angle diff: {self.opti.debug.value(angle)}')
@@ -239,7 +246,7 @@ class MPC(object):
         #    print(f'MPC Repulsive force: {self.opti.debug.value(r_force)}')
         #print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
         #print(f'MPC State: {self.opti.debug.value(self.x)}')
-        #print(f'MPC Reference: {self.opti.debug.value(self.reference_state)}')
+        print(f'MPC Reference: {self.opti.debug.value(self.reference_state)}')
         #print(f'MPC Obs: {self.opti.debug.value(self.obs_position)}')
         # Get first control generated (not predicted ones)
         u_optimal = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)

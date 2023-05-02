@@ -18,12 +18,6 @@ class GenericModel(object):
         self.dt = dt
         # Set initial state in casadi matrix representation
         self.initial_state = casadi.DM(init_state)
-        # Instatiate DAE Builder
-        self.dae = casadi.DaeBuilder()
-        # Instatiate empty variable for integrator
-        self.integrator = None
-        # Instatiate empty variable for system function
-        self._F = None
         # Build model 
         self.build_model()
         # Reset trajectories
@@ -71,8 +65,16 @@ class GenericModel(object):
         """
         Method used to build the model (daebuilder for the system's DAE, integrator for solving DAE, then simulator implementing the found solution)
         """
+        # Instatiate DAE Builder
+        self.dae = casadi.DaeBuilder()
         self._build_dae()
+
+        # Instatiate empty variable for integrator
+        self.integrator = None
         self._build_integrator()
+        
+        # Instatiate empty variable for system function
+        self._F = None
         self._build_simulator()
 
     def set_initial_state(self, init_state):

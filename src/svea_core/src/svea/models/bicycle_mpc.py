@@ -2,7 +2,6 @@ import numpy as np
 from svea.models.generic_mpc import GenericModel
 
 class BicycleModel(GenericModel):
-    DELTA_MAX = 40 * np.pi / 180  # max steering angle [rad]
     TAU = 0.1 # gain for simulating SVEA's ESC
     WHEEL_BASE = 0.324  # [m] Wheelbase of SVEA vehicle
     INPUT_NOISE_STD = 0.1
@@ -28,29 +27,25 @@ class BicycleModel(GenericModel):
         x = self.dae.add_x('x')
         # Y position
         y = self.dae.add_x('y')
-        # Velocity
-        v = self.dae.add_x('v')
         # Heading angle
         theta = self.dae.add_x('theta')
 
         # System's inputs
         # Desired linear velocity
-        v_u = self.dae.add_u('v_u')
+        v = self.dae.add_u('v')
         # Steering angle
         delta = self.dae.add_u('delta')
 
         # System's equations
         x_dot = v * np.cos(theta) 
         y_dot = v * np.sin(theta)
-        v_dot = (v_u - v) / self.TAU 
-        theta_dot = (v / self.WHEEL_BASE) * np.tan(delta)
+        theta_dot = v * np.tan(delta) / self.WHEEL_BASE
         # Might be also approximated to:
         #theta_dot = (v / self.WHEEL_BASE) * delta
 
         # Add system's equations to system's DAE
         self.dae.add_ode('x_dot', x_dot)
         self.dae.add_ode('y_dot', y_dot)
-        self.dae.add_ode('v_dot', v_dot)
         self.dae.add_ode('theta_dot', theta_dot)
 
         # DAE's metadata (e.g. units)
