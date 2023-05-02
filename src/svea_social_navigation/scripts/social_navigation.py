@@ -118,7 +118,7 @@ class SocialNavigation(object):
 
         # Initialize vehicle state
         self.state = VehicleState(*self.STATE)
-        self.x0 = [self.state.x, self.state.y, self.state.yaw]
+        self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
         self.last_state_time = None
         # Publish initial pose
         publish_initialpose(self.state)
@@ -155,17 +155,19 @@ class SocialNavigation(object):
         self.apf.wait_for_local_costmap()
         # Create vehicle model object
         self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
+        x_b = np.array([np.inf, np.inf, 1.7, np.inf])
+        u_b = np.array([0.5, np.deg2rad(40)])
         # Create MPC controller object
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[5, 5, 15],
+            Q=[20, 20, 0, 0],
             R=[1, 2],
             S=[0],
-            x_lb=[-100, -100, -2*np.pi],
-            x_ub=[100, 100, 2*np.inf],
-            u_lb=[-0.2, -np.deg2rad(40)],
-            u_ub=[0.2, np.deg2rad(40)],
+            x_lb=-x_b,
+            x_ub=x_b,
+            u_lb=-u_b,
+            u_ub=u_b,
             n_obstacles=self.apf.get_map_dimensions()[0] * self.apf.get_map_dimensions()[1],
             verbose=False
         )
@@ -215,6 +217,7 @@ class SocialNavigation(object):
         # Publish global path on rviz
         pi.publish_rviz_path()
         # Create path structure for MPC
+        self.path = np.hstack((self.path, np.full((np.shape(self.path)[0], 1), self.TARGET_VELOCITY)))
         self.path = np.hstack((self.path, np.zeros((np.shape(self.path)[0], 1))))
         for i, p in enumerate(self.path):
             if i != np.shape(self.path)[0] - 1:
@@ -268,9 +271,9 @@ class SocialNavigation(object):
             safe = self.localizer.is_ready
             # Wait for state from localization interface
             self.state = self.wait_for_state_from_localizer()
-            self.x0 = [self.state.x, self.state.y, self.state.yaw]
+            self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
         else:
-            self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.yaw]
+            self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
             print(f'State: {self.x0}')
     
         # Fill obstacle array with own position (so that repulsive force is 0)
@@ -288,15 +291,15 @@ class SocialNavigation(object):
 
         # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
         # final goal
-        if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
-            # TODO: safe way to have fake N points when getting closer to the end of the path 
-            last_iteration_points = self.path[self.waypoint_idx:, :]
-            while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
-                last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
-        else:
-            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
-        #u, predicted_state = self.controller.get_ctrl(self.x0, [2, 5, 0], self.local_obstacles)
+        #if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
+        #    # TODO: safe way to have fake N points when getting closer to the end of the path 
+        #    last_iteration_points = self.path[self.waypoint_idx:, :]
+        #    while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
+        #        last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
+        #    u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
+        #else:
+        #    u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
+        u, predicted_state = self.controller.get_ctrl(self.x0, [2, 5, 0.2, 0], self.local_obstacles)
 
         # Get optimal velocity and steering controls
         velocity = u[0, 0]
