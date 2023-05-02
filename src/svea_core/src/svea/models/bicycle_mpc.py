@@ -33,15 +33,15 @@ class BicycleModel(GenericModel):
         theta = self.dae.add_x('theta')
 
         # System's inputs
-        # Desired linear velocity
-        v_u = self.dae.add_u('v_u')
+        # Accelearion
+        a = self.dae.add_u('a')
         # Steering angle
         delta = self.dae.add_u('delta')
 
         # System's equations
         x_dot = v * np.cos(theta) 
         y_dot = v * np.sin(theta)
-        v_dot = (v_u - v) / self.TAU
+        v_dot = a
         theta_dot = v * np.tan(delta) / self.WHEEL_BASE
         # Might be also approximated to:
         #theta_dot = (v / self.WHEEL_BASE) * delta

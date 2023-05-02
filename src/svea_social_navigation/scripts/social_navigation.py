@@ -155,8 +155,8 @@ class SocialNavigation(object):
         self.apf.wait_for_local_costmap()
         # Create vehicle model object
         self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
-        x_b = np.array([np.inf, np.inf, 1.7, np.inf])
-        u_b = np.array([0.5, np.deg2rad(40)])
+        x_b = np.array([np.inf, np.inf, 0.5, np.inf])
+        u_b = np.array([1.7, np.deg2rad(40)])
         # Create MPC controller object
         self.controller = MPC(
             self.model,
@@ -259,7 +259,7 @@ class SocialNavigation(object):
         # Spin until alive
         while self.keep_alive():
             self.spin()
-            #rospy.sleep(0.1)
+            rospy.sleep(0.5)
         print('ENDING')
 
     def spin(self):
@@ -299,12 +299,12 @@ class SocialNavigation(object):
         #    u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
         #else:
         #    u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
-        u, predicted_state = self.controller.get_ctrl(self.x0, [2, 5, 0.2, 0], self.local_obstacles)
+        u, predicted_state = self.controller.get_ctrl(self.x0, [7, 5, 0.2, 0], self.local_obstacles)
 
-        # Get optimal velocity and steering controls
-        velocity = u[0, 0]
+        # Get optimal velocity (by integrating once the acceleration command and summing the current speed) and steering controls
+        velocity = u[0, 0] * self.DELTA_TIME + self.x0[2]
         steering = u[1, 0]
-        print(f'Optimal control: {velocity, steering}')
+        print(f'Optimal control (acceleration, steering): {u[0, 0], steering}')
         
         # Send control to actuator interface
         if not self.IS_SIM and safe:
