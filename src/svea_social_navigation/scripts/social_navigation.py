@@ -94,8 +94,7 @@ class SocialNavigation(object):
     DELTA_TIME = 0.1
     GOAL_THRESH = 0.1
     TARGET_VELOCITY = 0.2
-    WINDOW_LEN = 10
-    N_STATES = 3
+    WINDOW_LEN = 20
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
     K_R = 1000
     K_A = 10
@@ -120,7 +119,6 @@ class SocialNavigation(object):
         # Initialize vehicle state
         self.state = VehicleState(*self.STATE)
         self.x0 = [self.state.x, self.state.y, self.state.yaw]
-        self.predicted_state = np.full((self.N_STATES, self.WINDOW_LEN + 1), np.array([self.x0]).T)
         self.last_state_time = None
         # Publish initial pose
         publish_initialpose(self.state)
@@ -161,13 +159,13 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[1, 1, 0],
-            R=[1, 1],
-            S=[1],
+            Q=[5, 5, 15],
+            R=[1, 2],
+            S=[0],
             x_lb=[-100, -100, -2*np.pi],
             x_ub=[100, 100, 2*np.inf],
-            u_lb=[-0.5, -np.deg2rad(40)],
-            u_ub=[1.2, np.deg2rad(40)],
+            u_lb=[-0.2, -np.deg2rad(40)],
+            u_ub=[0.2, np.deg2rad(40)],
             n_obstacles=self.apf.get_map_dimensions()[0] * self.apf.get_map_dimensions()[1],
             verbose=False
         )
@@ -199,7 +197,7 @@ class SocialNavigation(object):
 
     def plan(self):
         debug = False
-        pi = PlannerInterface(obs_margin=0.2, weight_data=0.5, weight_smooth=0.5, tolerance=0.000001, theta_threshold=0.3)
+        pi = PlannerInterface(obs_margin=0.2, weight_data=0.5, weight_smooth=0.5, tolerance=0.000001, theta_threshold=0.01)
         pi.set_start([self.state.x, self.state.y])
         pi.set_goal([self.GOAL[0], self.GOAL[1]])
         pi.initialize_planner_world()
@@ -217,13 +215,12 @@ class SocialNavigation(object):
         # Publish global path on rviz
         pi.publish_rviz_path()
         # Create path structure for MPC
-        self.path = np.hstack((self.path, np.full((np.shape(self.path)[0], 1), self.TARGET_VELOCITY)))
         self.path = np.hstack((self.path, np.zeros((np.shape(self.path)[0], 1))))
         for i, p in enumerate(self.path):
             if i != np.shape(self.path)[0] - 1:
-                self.path[i, 3] = np.arctan2(self.path[i + 1, 1] - self.path[i, 1], self.path[i + 1, 0] - self.path[i, 0])
+                self.path[i, -1] = np.arctan2(self.path[i + 1, 1] - self.path[i, 1], self.path[i + 1, 0] - self.path[i, 0])
             else:
-                self.path[i, 3] = self.path[i - 1, 3]
+                self.path[i, -1] = self.path[i - 1, -1]
         
             
     def _visualize_data(self, x_pred, y_pred, velocity, steering):
@@ -274,9 +271,7 @@ class SocialNavigation(object):
             self.x0 = [self.state.x, self.state.y, self.state.yaw]
         else:
             self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.yaw]
-            #print(f'State: {self.x0}')
-        if np.linalg.norm(np.array(self.x0[0:2]) - np.array([7, 5])) < 0.2:
-            exit()
+            print(f'State: {self.x0}')
     
         # Fill obstacle array with own position (so that repulsive force is 0)
         self.local_obstacles = np.full((2, self.apf.get_map_dimensions()[0] * self.apf.get_map_dimensions()[1]), np.array([[-100000.0, -100000.0]]).T)
@@ -289,19 +284,19 @@ class SocialNavigation(object):
         # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of
         # index out of bounds
         self.waypoint_idx = np.minimum(np.argmin(np.linalg.norm(self.path[:, 0:2] - np.array([self.x0[0], self.x0[1]]), axis=1)) + 1, np.shape(self.path)[0] - 1)
+        print(f'Waypoint: {self.path[self.waypoint_idx]}')
 
         # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
         # final goal
-        #if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
-        #    # TODO: safe way to have fake N points when getting closer to the end of the path 
-        #    last_iteration_points = self.path[self.waypoint_idx:, :]
-        #    while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
-        #        last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-        #    u, self.predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
-        #else:
-        #    u, self.predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx+
-        #    self.WINDOW_LEN + 1, :].T, self.local_obstacles)
-        u, self.predicted_state = self.controller.get_ctrl(self.x0, [7, 5, 0], self.local_obstacles)
+        if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
+            # TODO: safe way to have fake N points when getting closer to the end of the path 
+            last_iteration_points = self.path[self.waypoint_idx:, :]
+            while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
+                last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
+            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
+        else:
+            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
+        #u, predicted_state = self.controller.get_ctrl(self.x0, [2, 5, 0], self.local_obstacles)
 
         # Get optimal velocity and steering controls
         velocity = u[0, 0]
@@ -317,7 +312,7 @@ class SocialNavigation(object):
             self.sim_model.update(steering, velocity, self.DELTA_TIME)
             
         # Visualize data on RVIZ
-        self._visualize_data(self.predicted_state[0, :], self.predicted_state[1, :], velocity, steering)
+        self._visualize_data(predicted_state[0, :], predicted_state[1, :], velocity, steering)
 
 
 if __name__ == '__main__':

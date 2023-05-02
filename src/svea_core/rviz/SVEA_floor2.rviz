@@ -284,6 +284,17 @@ Visualization Manager:
       Topic: /costmap_node/costmap/footprint
       Unreliable: false
       Value: true
+    - Alpha: 0.30000001192092896
+      Class: rviz/PointStamped
+      Color: 32; 74; 135
+      Enabled: true
+      History Length: 1
+      Name: Waypoints
+      Queue Size: 10
+      Radius: 0.019999999552965164
+      Topic: /waypoints
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 162; 162; 162
@@ -312,7 +323,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 15.696516036987305
+      Distance: 14.388232231140137
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -328,9 +339,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.234796166419983
+      Pitch: 1.0347968339920044
       Target Frame: base_link
-      Yaw: 4.669992446899414
+      Yaw: 4.27998685836792
     Saved: ~
 Window Geometry:
   Displays:
