@@ -161,8 +161,8 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[20, 20, 0, 0],
-            R=[1, 2],
+            Q=[10, 10, 1, 1],
+            R=[1, 1],
             S=[0],
             x_lb=-x_b,
             x_ub=x_b,
@@ -259,7 +259,7 @@ class SocialNavigation(object):
         # Spin until alive
         while self.keep_alive():
             self.spin()
-            rospy.sleep(0.5)
+            #rospy.sleep(0.5)
         print('ENDING')
 
     def spin(self):
@@ -291,15 +291,15 @@ class SocialNavigation(object):
 
         # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
         # final goal
-        #if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
-        #    # TODO: safe way to have fake N points when getting closer to the end of the path 
-        #    last_iteration_points = self.path[self.waypoint_idx:, :]
-        #    while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
-        #        last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-        #    u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
-        #else:
-        #    u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
-        u, predicted_state = self.controller.get_ctrl(self.x0, [7, 5, 0.2, 0], self.local_obstacles)
+        if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
+            # TODO: safe way to have fake N points when getting closer to the end of the path 
+            last_iteration_points = self.path[self.waypoint_idx:, :]
+            while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
+                last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
+            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
+        else:
+            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
+        #u, predicted_state = self.controller.get_ctrl(self.x0, [7, 5, 0.2, 0], self.local_obstacles)
 
         # Get optimal velocity (by integrating once the acceleration command and summing the current speed) and steering controls
         velocity = u[0, 0] * self.DELTA_TIME + self.x0[2]
