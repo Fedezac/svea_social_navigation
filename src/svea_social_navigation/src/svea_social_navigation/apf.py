@@ -2,6 +2,7 @@
 # Plain python imports
 from typing import Any
 import numpy as np
+from scipy import spatial
 import rospy
 
 # ROS imports
@@ -17,7 +18,7 @@ class ArtificialPotentialFieldHelper(object):
     """
     Class that given a local costmap computes the APF (only related to obstacles) for given robot 
     """
-    def __init__(self, svea_name="svea7"):
+    def __init__(self, mapped_obs, svea_name="svea7"):
         """
         Init method for the ArtificialPotentialField class
         """
@@ -33,8 +34,8 @@ class ArtificialPotentialFieldHelper(object):
         #  Waypoint variables
         self._waypoint = None
 
-        # Svea states variables
-        self._svea_states = None
+        # Static mapped obstacles
+        self._mapped_obs = mapped_obs
 
         # Costmap variables
         self._local_costmap = None
@@ -43,15 +44,6 @@ class ArtificialPotentialFieldHelper(object):
         self._map_x = None
         self._map_y = None
         self._map_resolution = None
-
-    def _set_states(self, x):
-        """
-        Callback method for the state subscriber
-
-        :param msg: state message
-        :type msg: VehicleState
-        """
-        self._svea_states = np.array(x)
 
     def _waypoint_cb(self, msg):
         """
@@ -86,10 +78,13 @@ class ArtificialPotentialFieldHelper(object):
         if self._local_costmap is not None:
             # Get obstacles indexes
             obs_indexes = np.transpose((self._local_costmap > 70).nonzero())
-            obs_positions = np.zeros(np.shape(obs_indexes))
-            obs_positions[:, 1] = obs_indexes[:, 0] * self._map_resolution + self._map_y
-            obs_positions[:, 0] = obs_indexes[:, 1] * self._map_resolution + self._map_x
-            return obs_positions
+            obs_positions = []
+            for idx in obs_indexes:
+                pos = [idx[1] * self._map_resolution + self._map_x, idx[0] * self._map_resolution + self._map_y]
+                distance, index = spatial.KDTree(self._mapped_obs).query(pos)
+                if distance > 1:
+                    obs_positions.append(pos)
+            return np.array(obs_positions)
         else:
             return None
         

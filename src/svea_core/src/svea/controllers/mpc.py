@@ -131,7 +131,7 @@ class MPC(object):
         """
         # Define optimizer parameters (constants)
         # Rows as the number of state variables to be kept into accout, columns how many timesteps
-        self.reference_state = self.opti.parameter(self.n_states, 1)
+        self.reference_state = self.opti.parameter(self.n_states, self.N + 1)
         self.initial_state = self.opti.parameter(self.n_states, 1)
         self.obs_position = self.opti.parameter(2, self.n_obs)
 
@@ -144,20 +144,20 @@ class MPC(object):
         reference_dimension = np.shape(self.reference_state)[0] - 1
         for k in range(self.N + 1):
             # Predicted state to be as close as possible to reference one
-            self.state_diff.append(self.x[:reference_dimension, k] - self.reference_state[:reference_dimension, 0])
+            self.state_diff.append(self.x[:reference_dimension, k] - self.reference_state[:reference_dimension, k])
             self.cost += self.state_diff[k].T @ self.Q[:reference_dimension, :reference_dimension] @ self.state_diff[k]
             # Compute angle diff as the heading difference between current heading angle of robot and angle between
             # robot's position and waypoint position
             #self.angle_diff.append(self.x[-1, k] - casadi.arctan2((self.reference_state[1, k] - self.x[1, k]), (self.reference_state[0, k] - self.x[0, k])))
             # In this way heading from current waypoint to next one, has to be computed for each waypoint (don't like it
             # much, but it is much more robust)
-            self.angle_diff.append(np.pi - casadi.norm_2(casadi.norm_2(self.x[-1, k] - self.reference_state[-1, 0]) - np.pi))
+            self.angle_diff.append(np.pi - casadi.norm_2(casadi.norm_2(self.x[-1, k] - self.reference_state[-1, k]) - np.pi))
             self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
 
             # Compute obstacle repulsive force
             rep_force = 0
             for i in range(self.n_obs):
-                rep_force += 2 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1, i]) ** 2 / 2)))
+                rep_force += 0.25 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1, i]) ** 2 / 2)))
             self.F_r.append(rep_force)
             self.cost += self.S * self.F_r[k]
 

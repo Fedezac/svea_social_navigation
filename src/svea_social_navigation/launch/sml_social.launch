@@ -51,7 +51,7 @@
         <!-- Waypoints for floo2 map -->
         <rosparam>
             state: [5.5, 3.85, 1.57, 0] # initial state (x, y, yaw)
-            goal: [6.3, 8]
+            goal: [7.4, 6.2]
         </rosparam>
     </node>
 

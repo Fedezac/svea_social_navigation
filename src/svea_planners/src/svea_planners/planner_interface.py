@@ -139,3 +139,12 @@ class PlannerInterface(object):
         Getter method for goal position
         """
         return self._goal
+    
+    def get_mapped_obs_pos(self):
+        """
+        Function to get the static and mapped obstacle position
+
+        :return: position of mapped obstacles
+        :rtype: list[tuple[float]]
+        """
+        return np.array(self._world.OBS)[:, 0:2]

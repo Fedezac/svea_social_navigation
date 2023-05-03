@@ -4,6 +4,8 @@ import numpy as np
 import rospy
 from copy import deepcopy
 
+from matplotlib import pyplot as plt
+
 # SVEA imports
 from svea.controllers.mpc import MPC
 from svea.sensors import Lidar
@@ -95,10 +97,8 @@ class SocialNavigation(object):
     GOAL_THRESH = 0.2
     STRAIGHT_SPEED = 0.3
     TURN_SPEED = 0.2
-    WINDOW_LEN = 10
+    WINDOW_LEN = 20
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
-    K_R = 1000
-    K_A = 10
 
     def __init__(self):
         """
@@ -128,6 +128,14 @@ class SocialNavigation(object):
         # Instatiate RVIZPathHandler object if publishing to RVIZ
         self.data_handler = RVIZPathHandler()
 
+        # Define planner interface
+        self.pi = PlannerInterface(obs_margin=0.2, degree=3, s=None, theta_threshold=0.3)
+        # Set start and goal point
+        self.pi.set_start([self.state.x, self.state.y])
+        self.pi.set_goal([self.GOAL[0], self.GOAL[1]])
+        # Initialize planner world
+        self.pi.initialize_planner_world()
+
         if self.IS_SIM:
             self.dynamic_obs_pos = [-100000.0, -100000.0]
             # Subscriber to dynamic obstacle topic
@@ -156,7 +164,7 @@ class SocialNavigation(object):
             self.simulator.toggle_pause_simulation()
 
         # Create APF object
-        self.apf = ArtificialPotentialFieldHelper(svea_name=self.SVEA_NAME)
+        self.apf = ArtificialPotentialFieldHelper(svea_name=self.SVEA_NAME, mapped_obs=self.pi.get_mapped_obs_pos())
         self.apf.wait_for_local_costmap()
         # Create vehicle model object
         self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
@@ -167,9 +175,9 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[20, 20, .1, .1],
+            Q=[10, 10, 1, 5],
             R=[1, 1],
-            S=[10],
+            S=[5],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
@@ -208,22 +216,15 @@ class SocialNavigation(object):
 
     def plan(self):
         debug = False
-        # Define planner interface
-        pi = PlannerInterface(obs_margin=0.2, degree=3, s=None, theta_threshold=0.3)
-        # Set start and goal point
-        pi.set_start([self.state.x, self.state.y])
-        pi.set_goal([self.GOAL[0], self.GOAL[1]])
-        # Initialize planner world
-        pi.initialize_planner_world()
         # Compute safe global path
-        pi.compute_path()
+        self.pi.compute_path()
         # Init visualize path interface
-        pi.initialize_path_interface()
+        self.pi.initialize_path_interface()
         # Get path 
-        #b_spline_path = np.array(pi.get_points_path(interpolate=True))
+        #b_spline_path = np.array(self.pi.get_points_path(interpolate=True))
         # Get smoothed path and extract social waypoints (other possible nice combination of parameters for path
         # smoothing is interpolate=False and degree=4)
-        b_spline_path = np.array(pi.get_social_waypoints(interpolate=True))
+        b_spline_path = np.array(self.pi.get_social_waypoints(interpolate=True))
         # Create array for MPC reference
         self.path = np.zeros(np.shape(b_spline_path))
         self.path[:, 0] = b_spline_path[:, 0]
@@ -231,14 +232,14 @@ class SocialNavigation(object):
         self.path[:, 2] = [self.STRAIGHT_SPEED if abs(curv) < 1e-2 else self.TURN_SPEED for curv in b_spline_path[:, 3]]
         self.path[:, 3] = b_spline_path[:, 2]
         # Re-initialize path interface to visualize on RVIZ socially aware path
-        pi.initialize_path_interface()
+        self.pi.initialize_path_interface()
         print(f'Social navigation path: {self.path[:, 0:2]} size, {np.shape(self.path)[0]}')
 
         # If debug mode is on, publish map's representation on RVIZ
         if debug:
-            pi.publish_internal_representation()
+            self.pi.publish_internal_representation()
         # Publish global path on rviz
-        pi.publish_rviz_path()
+        self.pi.publish_rviz_path()
             
     def _visualize_data(self, x_pred, y_pred, velocity, steering):
         # Visualize predicted local tracectory
@@ -300,10 +301,18 @@ class SocialNavigation(object):
 
         # Get position of obstacles deteceted in the local costmap 
         obs = np.array(self.apf.get_obstacles_position()).T
+        plt.clf()
+        plt.scatter(np.array(self.pi._world.OBS)[:, 0], np.array(self.pi._world.OBS)[:, 1])
+        if len(obs)>0:
+            plt.scatter(obs[0, :], obs[1, :])
+        plt.draw()
+        plt.pause(0.01)
         # If obstacles have been detected, insert them into the array
         if len(obs) > 0:
             self.local_obstacles[:, 0:np.shape(obs)[1]] = obs
-        self.local_obstacles[:, np.shape(obs)[1]] = self.dynamic_obs_pos
+            self.local_obstacles[:, np.shape(obs)[1]] = self.dynamic_obs_pos
+        else:
+            self.local_obstacles[:, 0] = self.dynamic_obs_pos
 
         # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of
         # index out of bounds
@@ -311,15 +320,14 @@ class SocialNavigation(object):
 
         # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
         # final goal
-        #if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
-        #    last_iteration_points = self.path[self.waypoint_idx:, :]
-        #    while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
-        #        last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-        #    u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
-        #else:
-        #    u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
-
-        u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx, :], self.local_obstacles)
+        if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
+            last_iteration_points = self.path[self.waypoint_idx:, :]
+            while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
+                last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
+            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
+        else:
+            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
+        #u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx, :], self.local_obstacles)
 
         # Get optimal velocity (by integrating once the acceleration command and summing it to the current speed) and steering controls
         velocity = u[0, 0] * self.DELTA_TIME + self.x0[2]

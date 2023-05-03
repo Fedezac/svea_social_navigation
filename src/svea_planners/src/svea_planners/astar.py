@@ -191,7 +191,6 @@ class AStarWorld(object):
         self.OBS = obstacles or self.OBS
         # Obstacles margins
         self.OBSTACLE_MARGIN = obs_margin or self.OBSTACLE_MARGIN
-
         # If no world resolution is given (so at init)
         if self._res is None:
             # Compute resolutions (number of rows/columns in an occupancy grid) for each world dimensions given world's limits
