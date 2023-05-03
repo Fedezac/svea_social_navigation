@@ -2,7 +2,6 @@
 
 import rospy
 import numpy as np
-from copy import deepcopy
 from svea_planners.gridmap_interface import GridMapInterface
 from svea_planners.path_interface import PathInterface
 from svea_planners.path_smoother import PathSmoother
@@ -63,36 +62,6 @@ class PlannerInterface(object):
         self._path_interface.create_pose_path()
         self._path_interface.publish_rviz_path()
 
-    def _smooth_path(self, path):
-        """
-        Creates a smooth path for a n-dimensional series of coordinates.
-        Arguments:
-            path: List containing coordinates of a path
-            weight_data: Float, how much weight to update the data (alpha)
-            weight_smooth: Float, how much weight to smooth the coordinates (beta).
-            tolerance: Float, how much change per iteration is necessary to keep iterating.
-        Output:
-            new: List containing smoothed coordinates.
-        """
-        new = deepcopy(path)
-        dims = len(path[0])
-        change = self._tolerance
-
-        while change >= self._tolerance:
-            change = 0.0
-            for i in range(1, len(new) - 1):
-                for j in range(dims):
-
-                    x_i = path[i][j]
-                    y_i, y_prev, y_next = new[i][j], new[i - 1][j], new[i + 1][j]
-
-                    y_i_saved = y_i
-                    y_i += self._weight_data * (x_i - y_i) + self._weight_smooth * (y_next + y_prev - (2 * y_i))
-                    new[i][j] = y_i
-
-                    change += abs(y_i - y_i_saved)
-        return new
-
     def get_points_path(self, granularity=None, interpolate=False):
         """
         Function to get every (x, y) point composing the path
@@ -110,9 +79,9 @@ class PlannerInterface(object):
             path = self._path_interface.get_points_path()
         self._path_smoother = PathSmoother(path)
         if interpolate:
-            return self._path_smoother.interpolate_b_spline_path(degree=self._degree)
+            return np.array(self._path_smoother.interpolate_b_spline_path(degree=self._degree)).T
         else:
-            return self._path_smoother.approximate_b_spline_path(degree=self._degree, s=self._smoothing_parameter)
+            return np.array(self._path_smoother.approximate_b_spline_path(degree=self._degree, s=self._smoothing_parameter)).T
         
     def get_social_waypoints(self, granularity=None, interpolate=False):
         """
@@ -121,9 +90,7 @@ class PlannerInterface(object):
         :return: array of socially feasible waypoints
         :rtype: numpy array of floats
         """
-        path = np.array(self.get_points_path(granularity=granularity, interpolate=interpolate)).T
-        print(f'SPLINE PATH: {path}')
-        print(np.shape(path))
+        path = np.array(self.get_points_path(granularity=granularity, interpolate=interpolate))
         # Empty array of waypoints
         self._social_waypoints = []
         # For every point in the path
@@ -142,7 +109,6 @@ class PlannerInterface(object):
                 if theta < self._theta_threshold:
                     self._social_waypoints.append(p)
         self._path = self._social_waypoints
-        print(self._social_waypoints)
         return self._social_waypoints
           
     def publish_internal_representation(self):

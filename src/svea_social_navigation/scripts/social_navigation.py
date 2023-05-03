@@ -93,7 +93,8 @@ def lists_to_pose_stampeds(x_list, y_list, yaw_list=None, t_list=None):
 class SocialNavigation(object):
     DELTA_TIME = 0.1
     GOAL_THRESH = 0.1
-    TARGET_VELOCITY = 0.2
+    STRAIGHT_SPEED = 0.3
+    TURN_SPEED = 0.2
     WINDOW_LEN = 10
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
     K_R = 1000
@@ -207,14 +208,14 @@ class SocialNavigation(object):
         pi.compute_path()
         pi.initialize_path_interface()
         # Get path 
-        #self.path = np.array(pi.get_points_path())
+        #b_spline_path = np.array(pi.get_points_path(interpolate=True))
         # Get smoothed path and extract social waypoints (other possible nice combination of parameters for path
         # smoothing is interpolate=False and degree=4)
         b_spline_path = np.array(pi.get_social_waypoints(interpolate=True))
         self.path = np.zeros(np.shape(b_spline_path))
         self.path[:, 0] = b_spline_path[:, 0]
         self.path[:, 1] = b_spline_path[:, 1]
-        self.path[:, 2] = self.TARGET_VELOCITY
+        self.path[:, 2] = [self.STRAIGHT_SPEED if abs(curv) < 1e-2 else self.TURN_SPEED for curv in b_spline_path[:, 3]]
         self.path[:, 3] = b_spline_path[:, 2]
         pi.initialize_path_interface()
         print(f'Social navigation path: {self.path[:, 0:2]} size, {np.shape(self.path)[0]}')
