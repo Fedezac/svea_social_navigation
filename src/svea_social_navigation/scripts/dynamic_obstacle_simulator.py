@@ -1,58 +1,43 @@
 #!/usr/bin/env python
 
 import rospy
-import math
-import tf
-from costmap_converter.msg import ObstacleArrayMsg, ObstacleMsg
-from geometry_msgs.msg import Point32, QuaternionStamped, Quaternion, TwistWithCovariance
-from tf.transformations import quaternion_from_euler
+from geometry_msgs.msg import PointStamped
 
 
 def publish_obstacle_msg():
-    pub = rospy.Publisher('/test_optim_node/obstacles', ObstacleArrayMsg, queue_size=1)
-    rospy.init_node("test_obstacle_msg")
+    pub = rospy.Publisher('/dynamic_obstacle', PointStamped, queue_size=1)
+    rospy.init_node("dynamic_obstacle_simulator")
 
-    y_0 = -3.0
+    x = 4
+    y = 2.2
+    z = 0.0
     vel_x = 0.0
-    vel_y = 0.3
-    range_y = 6.0
+    vel_y = 0.0
+    range_x = 6.0
+    range_y = 4.0
 
-    obstacle_msg = ObstacleArrayMsg()
+    obstacle_msg = PointStamped()
     obstacle_msg.header.stamp = rospy.Time.now()
-
-    # Add point obstacle
-    obstacle_msg.obstacles.append(ObstacleMsg())
-    obstacle_msg.obstacles[0].id = 99
-    obstacle_msg.obstacles[0].polygon.points = [Point32()]
-    obstacle_msg.obstacles[0].polygon.points[0].x = -1.5
-    obstacle_msg.obstacles[0].polygon.points[0].y = 0
-    obstacle_msg.obstacles[0].polygon.points[0].z = 0
-
-    yaw = math.atan2(vel_y, vel_x)
-    q = tf.transformations.quaternion_from_euler(0, 0, yaw)
-    obstacle_msg.obstacles[0].orientation = Quaternion(*q)
-
-    obstacle_msg.obstacles[0].velocities.twist.linear.x = vel_x
-    obstacle_msg.obstacles[0].velocities.twist.linear.y = vel_y
-    obstacle_msg.obstacles[0].velocities.twist.linear.z = 0
-    obstacle_msg.obstacles[0].velocities.twist.angular.x = 0
-    obstacle_msg.obstacles[0].velocities.twist.angular.y = 0
-    obstacle_msg.obstacles[0].velocities.twist.angular.z = 0
+    obstacle_msg.header.frame_id = 'map'
+    obstacle_msg.point.x = y
+    obstacle_msg.point.y = x
+    obstacle_msg.point.z = z
 
     r = rospy.Rate(10)  # 10hz
-    t = 0.0
+    dt = 0.1
     while not rospy.is_shutdown():
+        new_y = y + vel_y * dt
+        if new_y >= range_y or new_y <= 0:
+            vel_y = -vel_y
+        obstacle_msg.point.y = new_y
+        y = new_y
 
-        # Vary y component of the point obstacle
-        if (vel_y >= 0):
-            obstacle_msg.obstacles[0].polygon.points[0].y = y_0 + (vel_y * t) % range_y
-        else:
-            obstacle_msg.obstacles[0].polygon.points[0].y = y_0 + (vel_y * t) % range_y - range_y
-
-        t = t + 0.1
-
+        new_x = x + vel_x * dt
+        if new_x >= range_x or new_x <= 0:
+            vel_x = -vel_x
+        obstacle_msg.point.x = new_x
+        x = new_x
         pub.publish(obstacle_msg)
-
         r.sleep()
 
 

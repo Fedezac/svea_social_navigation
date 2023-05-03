@@ -18,7 +18,7 @@ from svea_planners.planner_interface import PlannerInterface
 from svea_social_navigation.apf import ArtificialPotentialFieldHelper
 
 # ROS imports
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, PointStamped
 from tf.transformations import quaternion_from_euler
 from nav_msgs.msg import Path
 
@@ -114,6 +114,7 @@ class SocialNavigation(object):
         self.STATE = load_param('~state', [0, 0, 0, 0])
         self.GOAL = load_param('~goal', [0, 0])
         self.SVEA_NAME = load_param('~svea_name', 'svea7')
+        self.DYNAMIC_OBSTACLE_TOPIC = load_param('~dynamic_obstacle_topic', '/dynamic_obstacle')
         # Define publisher for MPC predicted path
         self.pred_path_pub = rospy.Publisher("pred_path", Path, queue_size=1, latch=True)
 
@@ -128,6 +129,9 @@ class SocialNavigation(object):
         self.data_handler = RVIZPathHandler()
 
         if self.IS_SIM:
+            self.dynamic_obs_pos = [-100000.0, -100000.0]
+            # Subscriber to dynamic obstacle topic
+            self.dynamic_obstacle_sub = rospy.Subscriber(self.DYNAMIC_OBSTACLE_TOPIC, PointStamped, self._dynamic_obstacle_cb, queue_size=1)
             # Simulator needs a model to simulate
             self.sim_model = SimpleBicycleModel(self.state)
             # Start the simulator immediately, but paused
@@ -163,9 +167,9 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[10, 10, 1, 5],
+            Q=[20, 20, .1, .1],
             R=[1, 1],
-            S=[1],
+            S=[10],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
@@ -198,6 +202,9 @@ class SocialNavigation(object):
             return deepcopy(self.state)
         else:
             return None
+
+    def _dynamic_obstacle_cb(self, msg):
+        self.dynamic_obs_pos = [msg.point.x, msg.point.y]
 
     def plan(self):
         debug = False
@@ -296,6 +303,7 @@ class SocialNavigation(object):
         # If obstacles have been detected, insert them into the array
         if len(obs) > 0:
             self.local_obstacles[:, 0:np.shape(obs)[1]] = obs
+        self.local_obstacles[:, np.shape(obs)[1]] = self.dynamic_obs_pos
 
         # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of
         # index out of bounds
@@ -303,13 +311,15 @@ class SocialNavigation(object):
 
         # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
         # final goal
-        if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
-            last_iteration_points = self.path[self.waypoint_idx:, :]
-            while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
-                last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
-        else:
-            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
+        #if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
+        #    last_iteration_points = self.path[self.waypoint_idx:, :]
+        #    while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
+        #        last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
+        #    u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
+        #else:
+        #    u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
+
+        u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx, :], self.local_obstacles)
 
         # Get optimal velocity (by integrating once the acceleration command and summing it to the current speed) and steering controls
         velocity = u[0, 0] * self.DELTA_TIME + self.x0[2]
