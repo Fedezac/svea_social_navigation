@@ -94,7 +94,7 @@ class SocialNavigation(object):
     DELTA_TIME = 0.1
     GOAL_THRESH = 0.1
     TARGET_VELOCITY = 0.2
-    WINDOW_LEN = 20
+    WINDOW_LEN = 10
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
     K_R = 1000
     K_A = 10
@@ -155,6 +155,7 @@ class SocialNavigation(object):
         self.apf.wait_for_local_costmap()
         # Create vehicle model object
         self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
+        # Define variable bounds
         x_b = np.array([np.inf, np.inf, 0.5, np.inf])
         u_b = np.array([1.7, np.deg2rad(40)])
         # Create MPC controller object
@@ -199,7 +200,7 @@ class SocialNavigation(object):
 
     def plan(self):
         debug = False
-        pi = PlannerInterface(obs_margin=0.2, weight_data=0.5, weight_smooth=0.5, tolerance=0.000001, theta_threshold=0.01)
+        pi = PlannerInterface(obs_margin=0.2, degree=3, s=None, theta_threshold=0.3)
         pi.set_start([self.state.x, self.state.y])
         pi.set_goal([self.GOAL[0], self.GOAL[1]])
         pi.initialize_planner_world()
@@ -207,24 +208,22 @@ class SocialNavigation(object):
         pi.initialize_path_interface()
         # Get path 
         #self.path = np.array(pi.get_points_path())
-        self.path = np.array(pi.get_social_waypoints())
+        # Get smoothed path and extract social waypoints (other possible nice combination of parameters for path
+        # smoothing is interpolate=False and degree=4)
+        b_spline_path = np.array(pi.get_social_waypoints(interpolate=True))
+        self.path = np.zeros(np.shape(b_spline_path))
+        self.path[:, 0] = b_spline_path[:, 0]
+        self.path[:, 1] = b_spline_path[:, 1]
+        self.path[:, 2] = self.TARGET_VELOCITY
+        self.path[:, 3] = b_spline_path[:, 2]
         pi.initialize_path_interface()
-        print(f'Social navigation path: {self.path} size, {np.shape(self.path)[0]}')
+        print(f'Social navigation path: {self.path[:, 0:2]} size, {np.shape(self.path)[0]}')
 
         # If debug mode is on, publish map's representation on RVIZ
         if debug:
             pi.publish_internal_representation()
         # Publish global path on rviz
         pi.publish_rviz_path()
-        # Create path structure for MPC
-        self.path = np.hstack((self.path, np.full((np.shape(self.path)[0], 1), self.TARGET_VELOCITY)))
-        self.path = np.hstack((self.path, np.zeros((np.shape(self.path)[0], 1))))
-        for i, p in enumerate(self.path):
-            if i != np.shape(self.path)[0] - 1:
-                self.path[i, -1] = np.arctan2(self.path[i + 1, 1] - self.path[i, 1], self.path[i + 1, 0] - self.path[i, 0])
-            else:
-                self.path[i, -1] = self.path[i - 1, -1]
-        
             
     def _visualize_data(self, x_pred, y_pred, velocity, steering):
         # Visualize predicted local tracectory
@@ -259,7 +258,7 @@ class SocialNavigation(object):
         # Spin until alive
         while self.keep_alive():
             self.spin()
-            #rospy.sleep(0.5)
+            rospy.sleep(0.1)
         print('ENDING')
 
     def spin(self):

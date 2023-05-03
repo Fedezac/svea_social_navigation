@@ -3,9 +3,9 @@
 import rospy
 import numpy as np
 from copy import deepcopy
-from scipy.ndimage import gaussian_filter1d
 from svea_planners.gridmap_interface import GridMapInterface
 from svea_planners.path_interface import PathInterface
+from svea_planners.path_smoother import PathSmoother
 from svea_planners.astar import AStarPlanner, AStarWorld
 
 def assert_points(pts):
@@ -23,13 +23,12 @@ class PlannerInterface(object):
     _obs_margin = None
     _social_waypoints = None
 
-    def __init__(self, obs_margin=0.05,  weight_data=0.5, weight_smooth=0.5, tolerance=0.000001, theta_threshold=0.03):
+    def __init__(self, obs_margin=0.05, degree=3, s=None, theta_threshold=0.03):
         self._obs_margin = obs_margin
 
         # Path smoothing stuff
-        self._weight_data = weight_data
-        self._weight_smooth = weight_smooth
-        self._tolerance = tolerance
+        self._degree = degree
+        self._smoothing_parameter = s
 
         # Social waypoint extraction
         self._theta_threshold = theta_threshold
@@ -94,28 +93,37 @@ class PlannerInterface(object):
                     change += abs(y_i - y_i_saved)
         return new
 
-    def get_points_path(self, granularity=None):
+    def get_points_path(self, granularity=None, interpolate=False):
         """
         Function to get every (x, y) point composing the path
 
         :param granularity: get one point of the path each N-granularity points, defaults to None
         :type granularity: integer, optional
+        :param interpolate: choose if path smoother has to interplate or approximate path, defaults to False
+        :type iterpolate: boolean
         :return: list of points
         :rtype: list[float]
         """
         if granularity is not None:
-            return self._smooth_path(self._path_interface.get_points_path_reduced(granularity))
-        else: 
-            return self._smooth_path(self._path_interface.get_points_path())
+            path = self._path_interface.get_points_path_reduced(granularity)
+        else:
+            path = self._path_interface.get_points_path()
+        self._path_smoother = PathSmoother(path)
+        if interpolate:
+            return self._path_smoother.interpolate_b_spline_path(degree=self._degree)
+        else:
+            return self._path_smoother.approximate_b_spline_path(degree=self._degree, s=self._smoothing_parameter)
         
-    def get_social_waypoints(self, granularity=None):
+    def get_social_waypoints(self, granularity=None, interpolate=False):
         """
         Function used to retrieve socially feasible waypoints (from Kivrak et al. 2022)
 
         :return: array of socially feasible waypoints
         :rtype: numpy array of floats
         """
-        path = np.array(self.get_points_path(granularity=granularity))
+        path = np.array(self.get_points_path(granularity=granularity, interpolate=interpolate)).T
+        print(f'SPLINE PATH: {path}')
+        print(np.shape(path))
         # Empty array of waypoints
         self._social_waypoints = []
         # For every point in the path
@@ -125,15 +133,16 @@ class PlannerInterface(object):
                 self._social_waypoints.append(p)
             else:
                 # Compute vector connecting current point and precedent one
-                v1 = p - path[idx - 1]
+                v1 = p[0:2] - path[idx - 1, 0:2]
                 # Compute vector connecting subsequent point and current one
-                v2 = path[idx + 1] - p
+                v2 = path[idx + 1, 0:2] - p[0:2]
                 # Get angle between them (first clip value of cos(theta) between -1.0 and 1.0)
                 theta = np.arccos(np.clip(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)), -1.0, 1.0))
                 # If angle is less then a certain threshold, then add current point to array of waypoints
                 if theta < self._theta_threshold:
                     self._social_waypoints.append(p)
         self._path = self._social_waypoints
+        print(self._social_waypoints)
         return self._social_waypoints
           
     def publish_internal_representation(self):
