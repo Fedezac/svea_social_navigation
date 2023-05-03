@@ -152,7 +152,7 @@ class SocialNavigation(object):
             self.simulator.toggle_pause_simulation()
 
         # Create APF object
-        self.apf = ArtificialPotentialFieldHelper(svea_name=self.SVEA_NAME, k_r=self.K_R, k_a=self.K_A, window_len=self.WINDOW_LEN)
+        self.apf = ArtificialPotentialFieldHelper(svea_name=self.SVEA_NAME)
         self.apf.wait_for_local_costmap()
         # Create vehicle model object
         self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
@@ -201,22 +201,29 @@ class SocialNavigation(object):
 
     def plan(self):
         debug = False
+        # Define planner interface
         pi = PlannerInterface(obs_margin=0.2, degree=3, s=None, theta_threshold=0.3)
+        # Set start and goal point
         pi.set_start([self.state.x, self.state.y])
         pi.set_goal([self.GOAL[0], self.GOAL[1]])
+        # Initialize planner world
         pi.initialize_planner_world()
+        # Compute safe global path
         pi.compute_path()
+        # Init visualize path interface
         pi.initialize_path_interface()
         # Get path 
         #b_spline_path = np.array(pi.get_points_path(interpolate=True))
         # Get smoothed path and extract social waypoints (other possible nice combination of parameters for path
         # smoothing is interpolate=False and degree=4)
         b_spline_path = np.array(pi.get_social_waypoints(interpolate=True))
+        # Create array for MPC reference
         self.path = np.zeros(np.shape(b_spline_path))
         self.path[:, 0] = b_spline_path[:, 0]
         self.path[:, 1] = b_spline_path[:, 1]
         self.path[:, 2] = [self.STRAIGHT_SPEED if abs(curv) < 1e-2 else self.TURN_SPEED for curv in b_spline_path[:, 3]]
         self.path[:, 3] = b_spline_path[:, 2]
+        # Re-initialize path interface to visualize on RVIZ socially aware path
         pi.initialize_path_interface()
         print(f'Social navigation path: {self.path[:, 0:2]} size, {np.shape(self.path)[0]}')
 
@@ -245,6 +252,12 @@ class SocialNavigation(object):
         self.data_handler.visualize_data()
 
     def keep_alive(self):
+        """
+        Keep alive function based on the distance to the goal and current state of node
+
+        :return: True if the node is still running, False otherwise
+        :rtype: boolean
+        """
         distance = np.linalg.norm(np.array(self.GOAL) - np.array([self.x0[0], self.x0[1]]))
         return not (rospy.is_shutdown() or distance < self.GOAL_THRESH)
 
@@ -255,7 +268,6 @@ class SocialNavigation(object):
         # Plan a feasible path
         self.plan()
         self.waypoint_idx = 0
-        self.traj = []
         # Spin until alive
         while self.keep_alive():
             self.spin()
@@ -292,16 +304,14 @@ class SocialNavigation(object):
         # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
         # final goal
         if self.waypoint_idx + self.WINDOW_LEN + 1 >= np.shape(self.path)[0]:
-            # TODO: safe way to have fake N points when getting closer to the end of the path 
             last_iteration_points = self.path[self.waypoint_idx:, :]
             while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
                 last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
             u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, self.local_obstacles)
         else:
             u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, self.local_obstacles)
-        #u, predicted_state = self.controller.get_ctrl(self.x0, [7, 5, 0.2, 0], self.local_obstacles)
 
-        # Get optimal velocity (by integrating once the acceleration command and summing the current speed) and steering controls
+        # Get optimal velocity (by integrating once the acceleration command and summing it to the current speed) and steering controls
         velocity = u[0, 0] * self.DELTA_TIME + self.x0[2]
         steering = u[1, 0]
         print(f'Optimal control (acceleration, steering): {u[0, 0], steering}')
