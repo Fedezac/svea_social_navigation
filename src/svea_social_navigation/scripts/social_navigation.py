@@ -92,7 +92,7 @@ def lists_to_pose_stampeds(x_list, y_list, yaw_list=None, t_list=None):
 
 class SocialNavigation(object):
     DELTA_TIME = 0.1
-    GOAL_THRESH = 0.1
+    GOAL_THRESH = 0.2
     STRAIGHT_SPEED = 0.3
     TURN_SPEED = 0.2
     WINDOW_LEN = 10
@@ -163,9 +163,9 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[10, 10, 1, 1],
+            Q=[10, 10, 1, 5],
             R=[1, 1],
-            S=[0],
+            S=[1],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
@@ -272,7 +272,7 @@ class SocialNavigation(object):
         while self.keep_alive():
             self.spin()
             rospy.sleep(0.1)
-        print('ENDING')
+        print('--- GOAL REACHED ---')
 
     def spin(self):
         """
@@ -287,9 +287,10 @@ class SocialNavigation(object):
         else:
             self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
             print(f'State: {self.x0}')
-    
+
         # Fill obstacle array with own position (so that repulsive force is 0)
         self.local_obstacles = np.full((2, self.apf.get_map_dimensions()[0] * self.apf.get_map_dimensions()[1]), np.array([[-100000.0, -100000.0]]).T)
+
         # Get position of obstacles deteceted in the local costmap 
         obs = np.array(self.apf.get_obstacles_position()).T
         # If obstacles have been detected, insert them into the array
@@ -299,7 +300,6 @@ class SocialNavigation(object):
         # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of
         # index out of bounds
         self.waypoint_idx = np.minimum(np.argmin(np.linalg.norm(self.path[:, 0:2] - np.array([self.x0[0], self.x0[1]]), axis=1)) + 1, np.shape(self.path)[0] - 1)
-        print(f'Waypoint: {self.path[self.waypoint_idx]}')
 
         # If there are not enough waypoints for concluding the path, then fill in the waypoints array with the desiderd
         # final goal
