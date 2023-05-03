@@ -45,11 +45,9 @@ def publish_obstacle_msg():
 
         # Vary y component of the point obstacle
         if (vel_y >= 0):
-            obstacle_msg.obstacles[0].polygon.points[0].y = y_0 + \
-                (vel_y*t) % range_y
+            obstacle_msg.obstacles[0].polygon.points[0].y = y_0 + (vel_y * t) % range_y
         else:
-            obstacle_msg.obstacles[0].polygon.points[0].y = y_0 + \
-                (vel_y*t) % range_y - range_y
+            obstacle_msg.obstacles[0].polygon.points[0].y = y_0 + (vel_y * t) % range_y - range_y
 
         t = t + 0.1
 
