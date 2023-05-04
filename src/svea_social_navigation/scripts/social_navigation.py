@@ -175,7 +175,7 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[10, 10, 1, 5],
+            Q=[7, 7, .1, .1],
             R=[1, 1],
             S=[5],
             x_lb=-x_b,
@@ -279,7 +279,7 @@ class SocialNavigation(object):
         # Spin until alive
         while self.keep_alive():
             self.spin()
-            rospy.sleep(0.1)
+            #rospy.sleep(0.1)
         print('--- GOAL REACHED ---')
 
     def spin(self):
@@ -301,19 +301,23 @@ class SocialNavigation(object):
 
         # Get position of obstacles deteceted in the local costmap 
         obs = np.array(self.apf.get_obstacles_position()).T
-        plt.clf()
-        plt.scatter(np.array(self.pi._world.OBS)[:, 0], np.array(self.pi._world.OBS)[:, 1])
-        if len(obs)>0:
-            plt.scatter(obs[0, :], obs[1, :])
-        plt.draw()
-        plt.pause(0.01)
         # If obstacles have been detected, insert them into the array
         if len(obs) > 0:
             self.local_obstacles[:, 0:np.shape(obs)[1]] = obs
             self.local_obstacles[:, np.shape(obs)[1]] = self.dynamic_obs_pos
         else:
             self.local_obstacles[:, 0] = self.dynamic_obs_pos
+        closest_obs = np.linalg.norm(np.array([self.x0[0:2]]).T - self.local_obstacles, axis=0).argmin()
 
+        plt.clf()
+        plt.scatter(np.array(self.pi._world.OBS)[:, 0], np.array(self.pi._world.OBS)[:, 1])
+        plt.scatter(self.x0[0], self.x0[1])
+        if len(obs)>0:
+            plt.scatter(obs[0, :], obs[1, :])
+        plt.scatter(self.local_obstacles[0, closest_obs], self.local_obstacles[1, closest_obs])
+        plt.draw()
+        plt.pause(0.01)
+        
         # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of
         # index out of bounds
         self.waypoint_idx = np.minimum(np.argmin(np.linalg.norm(self.path[:, 0:2] - np.array([self.x0[0], self.x0[1]]), axis=1)) + 1, np.shape(self.path)[0] - 1)

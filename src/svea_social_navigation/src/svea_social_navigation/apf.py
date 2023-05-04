@@ -77,7 +77,7 @@ class ArtificialPotentialFieldHelper(object):
         """
         if self._local_costmap is not None:
             # Get obstacles indexes
-            obs_indexes = np.transpose((self._local_costmap > 70).nonzero())
+            obs_indexes = np.transpose((self._local_costmap > 50).nonzero())
             obs_positions = []
             for idx in obs_indexes:
                 pos = [idx[1] * self._map_resolution + self._map_x, idx[0] * self._map_resolution + self._map_y]

@@ -3,9 +3,6 @@ import casadi
 from svea.models.generic_mpc import GenericModel
 
 class MPC(object):
-    # Repulsive force coefficient
-    K_R = 1
-
     def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_obstacles, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
         Init method for MPC class
@@ -154,10 +151,11 @@ class MPC(object):
             self.angle_diff.append(np.pi - casadi.norm_2(casadi.norm_2(self.x[-1, k] - self.reference_state[-1, k]) - np.pi))
             self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
 
-            # Compute obstacle repulsive force
+            # Compute obstacle repulsive force            
             rep_force = 0
             for i in range(self.n_obs):
-                rep_force += 0.25 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1, i]) ** 2 / 2)))
+                rep_force += 0.5 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1, i]) ** 2 / 2)))
+            #rep_force += 0.5 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1]) ** 2 / 2)))
             self.F_r.append(rep_force)
             self.cost += self.S * self.F_r[k]
 
