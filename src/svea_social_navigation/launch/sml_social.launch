@@ -2,6 +2,8 @@
 <launch>
 
     <!-- Launch file arguments -->
+    <!-- SET DEBUG TO TRUE AT YOUR OWN 'COMPUTATIONALLY DEMANDING' RISK -->
+    <arg name="debug" default="false"/>
     <arg name="map" default="sml_planner"/>
     <arg name="local_costmap_topic" default="/costmap_node/costmap/costmap"/>
     <arg name="waypoint_topic" default="/target"/>

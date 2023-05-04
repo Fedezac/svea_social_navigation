@@ -115,6 +115,7 @@ class SocialNavigation(object):
         self.GOAL = load_param('~goal', [0, 0])
         self.SVEA_NAME = load_param('~svea_name', 'svea7')
         self.DYNAMIC_OBSTACLE_TOPIC = load_param('~dynamic_obstacle_topic', '/dynamic_obstacle')
+        self.DEBUG = load_param('~debug', False)
         # Define publisher for MPC predicted path
         self.pred_path_pub = rospy.Publisher("pred_path", Path, queue_size=1, latch=True)
 
@@ -175,9 +176,9 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[7, 7, .1, .1],
+            Q=[8, 8, .1, .1],
             R=[1, 1],
-            S=[5],
+            S=[6],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
@@ -215,7 +216,6 @@ class SocialNavigation(object):
         self.dynamic_obs_pos = [msg.point.x, msg.point.y]
 
     def plan(self):
-        debug = False
         # Compute safe global path
         self.pi.compute_path()
         # Init visualize path interface
@@ -236,7 +236,7 @@ class SocialNavigation(object):
         print(f'Social navigation path: {self.path[:, 0:2]} size, {np.shape(self.path)[0]}')
 
         # If debug mode is on, publish map's representation on RVIZ
-        if debug:
+        if self.DEBUG:
             self.pi.publish_internal_representation()
         # Publish global path on rviz
         self.pi.publish_rviz_path()
@@ -304,19 +304,20 @@ class SocialNavigation(object):
         # If obstacles have been detected, insert them into the array
         if len(obs) > 0:
             self.local_obstacles[:, 0:np.shape(obs)[1]] = obs
-            self.local_obstacles[:, np.shape(obs)[1]] = self.dynamic_obs_pos
+            self.local_obstacles[:, np.shape(obs)[1]:np.shape(obs)[1] + 2] = self.dynamic_obs_pos
         else:
-            self.local_obstacles[:, 0] = self.dynamic_obs_pos
+            self.local_obstacles[:, 0:2] = self.dynamic_obs_pos
         closest_obs = np.linalg.norm(np.array([self.x0[0:2]]).T - self.local_obstacles, axis=0).argmin()
 
-        plt.clf()
-        plt.scatter(np.array(self.pi._world.OBS)[:, 0], np.array(self.pi._world.OBS)[:, 1])
-        plt.scatter(self.x0[0], self.x0[1])
-        if len(obs)>0:
-            plt.scatter(obs[0, :], obs[1, :])
-        plt.scatter(self.local_obstacles[0, closest_obs], self.local_obstacles[1, closest_obs])
-        plt.draw()
-        plt.pause(0.01)
+        if self.DEBUG:
+            plt.clf()
+            plt.scatter(np.array(self.pi._world.OBS)[:, 0], np.array(self.pi._world.OBS)[:, 1])
+            plt.scatter(self.x0[0], self.x0[1])
+            if len(obs)>0:
+                plt.scatter(obs[0, :], obs[1, :])
+            plt.scatter(self.local_obstacles[0, closest_obs], self.local_obstacles[1, closest_obs])
+            plt.draw()
+            plt.pause(0.01)
         
         # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of
         # index out of bounds
