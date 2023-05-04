@@ -3,7 +3,7 @@
 
     <!-- Launch file arguments -->
     <!-- SET DEBUG TO TRUE AT YOUR OWN 'COMPUTATIONALLY DEMANDING' RISK -->
-    <arg name="debug" default="false"/>
+    <arg name="debug" default="True"/>
     <arg name="map" default="sml_planner"/>
     <arg name="local_costmap_topic" default="/costmap_node/costmap/costmap"/>
     <arg name="waypoint_topic" default="/target"/>
@@ -52,8 +52,8 @@
         <param name="remote_rviz" value="$(arg remote_rviz)" />
         <!-- Waypoints for floo2 map -->
         <rosparam>
-            state: [7.4, 2.9, 1.57, 0] # initial state (x, y, yaw)
-            goal: [7.4, 6.8]
+            state: [3, 1, 1.57, 0] # initial state (x, y, yaw)
+            goal: [3, 8]
         </rosparam>
     </node>
 

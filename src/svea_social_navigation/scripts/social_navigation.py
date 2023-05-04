@@ -97,7 +97,7 @@ class SocialNavigation(object):
     GOAL_THRESH = 0.2
     STRAIGHT_SPEED = 0.3
     TURN_SPEED = 0.2
-    WINDOW_LEN = 20
+    WINDOW_LEN = 10
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
 
     def __init__(self):
@@ -177,7 +177,7 @@ class SocialNavigation(object):
             self.model,
             N=self.WINDOW_LEN,
             Q=[8, 8, .1, .1],
-            R=[1, 1],
+            R=[.1, .1],
             S=[6],
             x_lb=-x_b,
             x_ub=x_b,
@@ -306,16 +306,16 @@ class SocialNavigation(object):
             self.local_obstacles[:, 0:np.shape(obs)[1]] = obs
             self.local_obstacles[:, np.shape(obs)[1]:np.shape(obs)[1] + 2] = self.dynamic_obs_pos
         else:
-            self.local_obstacles[:, 0:2] = self.dynamic_obs_pos
-        closest_obs = np.linalg.norm(np.array([self.x0[0:2]]).T - self.local_obstacles, axis=0).argmin()
+            self.local_obstacles[:, 0:2] = np.array([self.dynamic_obs_pos]).T
+        print(f'Dyn obs: {self.dynamic_obs_pos}')
+        #closest_obs = np.linalg.norm(np.array([self.x0[0:2]]).T - self.local_obstacles, axis=0).argmin()
 
         if self.DEBUG:
             plt.clf()
             plt.scatter(np.array(self.pi._world.OBS)[:, 0], np.array(self.pi._world.OBS)[:, 1])
             plt.scatter(self.x0[0], self.x0[1])
-            if len(obs)>0:
-                plt.scatter(obs[0, :], obs[1, :])
-            plt.scatter(self.local_obstacles[0, closest_obs], self.local_obstacles[1, closest_obs])
+            plt.scatter(self.local_obstacles[:, 0], self.local_obstacles[:,1])
+            #plt.scatter(self.local_obstacles[0, closest_obs], self.local_obstacles[1, closest_obs])
             plt.draw()
             plt.pause(0.01)
         
