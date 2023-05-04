@@ -19,6 +19,7 @@ from svea.data import RVIZPathHandler
 from svea_planners.planner_interface import PlannerInterface
 from svea_social_navigation.apf import ArtificialPotentialFieldHelper
 from svea_social_navigation.static_unmapped_obstacle_simulator import StaticUnmappedObstacleSimulator
+from svea_social_navigation.dynamic_obstacle_simulator import DynamicObstacleSimulator
 
 # ROS imports
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
@@ -140,15 +141,15 @@ class SocialNavigation(object):
         # Initialize planner world
         self.pi.initialize_planner_world()
 
-        # Initialize array of dynamic obstacles
-        self.dynamic_obs_pos = []
-        # Subscriber to dynamic obstacle topic
-        self.dynamic_obstacle_sub = rospy.Subscriber(self.DYNAMIC_OBSTACLE_TOPIC, MarkerArray, self._dynamic_obstacle_cb, queue_size=1)
+        # Initialize dynamic obstacles simulator
+        self.DYNAMIC_OBS = load_param('~dynamic_obstacles', [])
+        self.static_unmapped_obs_simulator = DynamicObstacleSimulator(self.DYNAMIC_OBS, self.DELTA_TIME)
+        self.static_unmapped_obs_simulator.publish_obstacle_msg()
 
         # Initialize static unmapped obstacles simulator
         self.STATIC_UNMAPPED_OBS = load_param('~static_unmapped_obstacles', [])
-        self.static_unmapped_obs_simulator = StaticUnmappedObstacleSimulator(np.array(self.STATIC_UNMAPPED_OBS))
-        self.static_unmapped_obs_simulator.publish_obstacle_msg()
+        self.dynamic_obs_simulator = StaticUnmappedObstacleSimulator(self.STATIC_UNMAPPED_OBS)
+        self.dynamic_obs_simulator.publish_obstacle_msg()
 
         if self.IS_SIM:
             # Simulator needs a model to simulate

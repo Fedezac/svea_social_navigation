@@ -26,9 +26,13 @@ class StaticUnmappedObstacleSimulator(object):
         :param obs: list of obstacle positions
         :type obs: list[tuple[float]]
         """
-        self.TOPIC_NAME = load_param('~static_unmapped_topic', '/static_unmapped_obstacles')
+        self.TOPIC_NAME = load_param('~static_unmapped_obstacle_topic', '/static_unmapped_obstacles')
         self.pub = rospy.Publisher(self.TOPIC_NAME, MarkerArray, queue_size=1, latch=True)
-        self.obs = obs
+        self.obs = np.array(obs)
+        self.ns = 'static_unmapped_obstacle_simulator'
+        self.r = 0.0
+        self.g = 1.0
+        self.b = 0.0
 
     def create_marker_array(self):
         """
@@ -55,7 +59,7 @@ class StaticUnmappedObstacleSimulator(object):
         m = Marker()
         m.header.frame_id = 'map'
         m.header.stamp = rospy.Time.now()
-        m.ns = 'static_unmapped_obstacle_simulator'
+        m.ns = self.ns
         m.id = id
         m.type = Marker.SPHERE
         m.action = Marker.ADD
@@ -70,9 +74,9 @@ class StaticUnmappedObstacleSimulator(object):
         m.scale.y = 0.1
         m.scale.z = 0.1
         m.color.a = 1.0 
-        m.color.r = 0.0
-        m.color.g = 1.0
-        m.color.b = 0.0
+        m.color.r = self.r
+        m.color.g = self.g
+        m.color.b = self.b
         return m
     
     def publish_obstacle_msg(self):
