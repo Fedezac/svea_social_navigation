@@ -3,7 +3,7 @@ import casadi
 from svea.models.generic_mpc import GenericModel
 
 class MPC(object):
-    def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_obstacles, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
+    def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_static_obstacles, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
         Init method for MPC class
 
@@ -29,8 +29,8 @@ class MPC(object):
         self.n_states = len(self.model.dae.x)
         self.n_inputs = len(self.model.dae.u)
 
-        # Get max number of obstacles
-        self.n_obs = n_obstacles
+        # Get max number of of static unmapped obstacles
+        self.n_static_obstacles = n_static_obstacles
 
         # Check that there are enough lower and upper bounds for each state/input variable
         assert self.n_states == len(x_lb), f'Number of lower bounds does not correspond to states number, number of states: {self.n_states}, number of lower bounds: {len(x_lb)}'
@@ -67,7 +67,7 @@ class MPC(object):
         self.x = None
         self.u = None
         self.reference_state = casadi.DM.zeros(self.n_states, 1)
-        self.obs_position = None
+        self.static_unmapped_obs_position = casadi.DM.zeros(2, self.n_static_obstacles)
 
         # Cost function related varirables
         self.state_diff = []
@@ -130,7 +130,7 @@ class MPC(object):
         # Rows as the number of state variables to be kept into accout, columns how many timesteps
         self.reference_state = self.opti.parameter(self.n_states, self.N + 1)
         self.initial_state = self.opti.parameter(self.n_states, 1)
-        self.obs_position = self.opti.parameter(2, self.n_obs)
+        self.static_unmapped_obs_position = self.opti.parameter(2, self.n_static_obstacles)
 
     def _optimizer_cost_function(self):
         """
@@ -153,8 +153,8 @@ class MPC(object):
 
             # Compute obstacle repulsive force            
             rep_force = 0
-            for i in range(self.n_obs):
-                rep_force += 0.5 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1, i]) ** 2 / 2)))
+            for i in range(self.n_static_obstacles):
+                rep_force += 2 * casadi.exp(-(((self.x[0, k] - self.static_unmapped_obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.static_unmapped_obs_position[1, i]) ** 2 / 2)))
             #rep_force += 0.5 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1]) ** 2 / 2)))
             self.F_r.append(rep_force)
             self.cost += self.S * self.F_r[k]
@@ -206,7 +206,7 @@ class MPC(object):
         # Set initial state as optimizer constraint
         self.opti.subject_to(self.x[:, [0]] == self.initial_state)
 
-    def get_ctrl(self, initial_state, reference_state, obs_pos):
+    def get_ctrl(self, initial_state, reference_state, static_unmapped_obs_position):
         """
         Function to solve optimizer problem and get control from MPC, given initial state and reference state
 
@@ -220,7 +220,7 @@ class MPC(object):
         # Set optimizer values for both initial state and reference states
         self.opti.set_value(self.initial_state, initial_state)
         self.opti.set_value(self.reference_state, reference_state)
-        self.opti.set_value(self.obs_position, obs_pos)
+        self.opti.set_value(self.static_unmapped_obs_position, static_unmapped_obs_position)
         # Solve optimizer problem if it is feasible
         try: 
             self.opti.solve()
@@ -244,9 +244,9 @@ class MPC(object):
         #for r_force in self.F_r:
         #    print(f'MPC Repulsive force: {self.opti.debug.value(r_force)}')
         print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
+        print(f'MPC Static Unmapped Obstacles: {self.opti.debug.value(self.static_unmapped_obs_position)}')
         #print(f'MPC State: {self.opti.debug.value(self.x)}')
         #print(f'MPC Reference: {self.opti.debug.value(self.reference_state)}')
-        #print(f'MPC Obs: {self.opti.debug.value(self.obs_position)}')
         # Get first control generated (not predicted ones)
         u_optimal = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         # Get new predicted position

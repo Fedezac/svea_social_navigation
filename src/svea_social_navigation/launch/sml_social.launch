@@ -8,6 +8,7 @@
     <arg name="local_costmap_topic" default="/costmap_node/costmap/costmap"/>
     <arg name="waypoint_topic" default="/target"/>
     <arg name="dynamic_obstacle_topic" default="/dynamic_obstacle"/>
+    <arg name="static_unmapped_obstacle_topic" default="/static_unmapped_obstacles"/>
     <arg name="is_mocap" default="true"/>
     <arg name="svea_name" default="svea7"/>
     <arg name="is_sim" default="true"/>
@@ -60,7 +61,7 @@
     <!-- Run the costmap node -->
     <group if="$(arg is_sim)">
         <node name="tf_sim_lidar_to_base_link" pkg="tf" type="static_transform_publisher" args="0.30 0 0.22 0 0 0 $(arg svea_name)/base_link $(arg svea_name)/sim_lidar 100" />
-        <node name="dynamic_obstacle_simulator" pkg="svea_social_navigation" type="dynamic_obstacle_simulator.py" />
+        <node name="static_unmapped_obstacle_simulator" pkg="svea_social_navigation" type="static_unmapped_obstacle_simulator.py" />
         <node name="costmap_node" pkg="costmap_2d" type="costmap_2d_node">
             <rosparam file="$(find svea_social_navigation)/config/costmap_params_sim.yaml" command="load" ns="costmap" />
         </node>

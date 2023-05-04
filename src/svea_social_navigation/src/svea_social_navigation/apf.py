@@ -88,6 +88,23 @@ class ArtificialPotentialFieldHelper(object):
         else:
             return None
         
+    def get_local_obstacles(self, obs):
+        """
+        Function to retrieve detected obstacles that are in the local obstacle
+
+        :param obs: list of obstacles
+        :type obs: list[tuple[float]]
+        :return: obstacles that are inside the local costmap
+        :rtype: list[tuple[float]]
+        """
+        map_x_limit = self._map_x + self._map_resolution * self._map_width
+        map_y_limit = self._map_y + self._map_resolution * self._map_height
+        loc_obs = []
+        for p in obs:
+            if self._map_x < p[0] < map_x_limit and self._map_y < p[1] < map_y_limit:
+                loc_obs.append(p)
+        return np.array(loc_obs)
+        
     def get_map_dimensions(self):
         """
         Function to retrieve the map's dimensions
