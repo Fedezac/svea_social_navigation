@@ -223,9 +223,8 @@ class SocialNavigation(object):
         else:
             return None
 
-    def _dynamic_obstacle_cb(self, msg):
-        for i in range(len(msg.markers)):
-            self.dynamic_obs_pos.append([msg.markers[i].pose.position.x, msg.markers[i].pose.position.y])
+    def predict_dynamic_obstacles_trajectory(self):
+        pass
 
     def plan(self):
         # Compute safe global path
