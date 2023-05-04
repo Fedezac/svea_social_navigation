@@ -18,6 +18,7 @@ from svea_mocap.mocap import MotionCaptureInterface
 from svea.data import RVIZPathHandler
 from svea_planners.planner_interface import PlannerInterface
 from svea_social_navigation.apf import ArtificialPotentialFieldHelper
+from svea_social_navigation.static_unmapped_obstacle_simulator import StaticUnmappedObstacleSimulator
 
 # ROS imports
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
@@ -117,7 +118,6 @@ class SocialNavigation(object):
         self.GOAL = load_param('~goal', [0, 0])
         self.SVEA_NAME = load_param('~svea_name', 'svea7')
         self.DYNAMIC_OBSTACLE_TOPIC = load_param('~dynamic_obstacle_topic', '/dynamic_obstacle')
-        self.STATIC_UNMAPPED_OBSTACLE_TOPIC = load_param('~static_unmapped_topic', '/static_unmapped_obstacles')
         self.DEBUG = load_param('~debug', False)
         # Define publisher for MPC predicted path
         self.pred_path_pub = rospy.Publisher("pred_path", Path, queue_size=1, latch=True)
@@ -145,10 +145,10 @@ class SocialNavigation(object):
         # Subscriber to dynamic obstacle topic
         self.dynamic_obstacle_sub = rospy.Subscriber(self.DYNAMIC_OBSTACLE_TOPIC, MarkerArray, self._dynamic_obstacle_cb, queue_size=1)
 
-        # Initialize array of static unmapped obstacles
-        self.static_unmapped_obs_pos = []
-        # Subscriber to static unmapped obstacle topic
-        self.static_unmapped_obstacle_sub = rospy.Subscriber(self.STATIC_UNMAPPED_OBSTACLE_TOPIC, MarkerArray, self._static_unmapped_obstacle_cb, queue_size=1)
+        # Initialize static unmapped obstacles simulator
+        self.STATIC_UNMAPPED_OBS = load_param('~static_unmapped_obstacles', [])
+        self.static_unmapped_obs_simulator = StaticUnmappedObstacleSimulator(np.array(self.STATIC_UNMAPPED_OBS))
+        self.static_unmapped_obs_simulator.publish_obstacle_msg()
 
         if self.IS_SIM:
             # Simulator needs a model to simulate
@@ -181,14 +181,14 @@ class SocialNavigation(object):
         self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
         # Define variable bounds
         x_b = np.array([np.inf, np.inf, 0.5, np.inf])
-        u_b = np.array([1, np.deg2rad(40)])
+        u_b = np.array([0.5, np.deg2rad(40)])
         # Create MPC controller object
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
             Q=[5, 5, .1, .1],
-            R=[1, 1],
-            S=[2],
+            R=[1, .1],
+            S=[4],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
@@ -225,11 +225,6 @@ class SocialNavigation(object):
     def _dynamic_obstacle_cb(self, msg):
         for i in range(len(msg.markers)):
             self.dynamic_obs_pos.append([msg.markers[i].pose.position.x, msg.markers[i].pose.position.y])
-
-    def _static_unmapped_obstacle_cb(self, msg):
-        for i in range(len(msg.markers)):
-            self.static_unmapped_obs_pos.append([msg.markers[i].pose.position.x, msg.markers[i].pose.position.y])
-
 
     def plan(self):
         # Compute safe global path
@@ -312,11 +307,12 @@ class SocialNavigation(object):
             self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
             print(f'State: {self.x0}')
 
+
+        static_unmapped_obs_pos = self.static_unmapped_obs_simulator.obs
         # Initialize array of static unmapped obstacles
         local_static_unmapped_obstacles = np.full((2, self.MAX_N_STATIC_OBSTACLES), np.array([[-100000.0, -100000.0]]).T)
         # Get position of obstacles deteceted in the local costmap
-        local_obs = self.apf.get_local_obstacles(self.static_unmapped_obs_pos)
-        print(local_obs)
+        local_obs = self.apf.get_local_obstacles(static_unmapped_obs_pos)
         # Insert them into MPC ready structure
         local_static_unmapped_obstacles[:, 0:np.shape(local_obs)[0]] = local_obs.T
 

@@ -154,7 +154,7 @@ class MPC(object):
             # Compute obstacle repulsive force            
             rep_force = 0
             for i in range(self.n_static_obstacles):
-                rep_force += 2 * casadi.exp(-(((self.x[0, k] - self.static_unmapped_obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.static_unmapped_obs_position[1, i]) ** 2 / 2)))
+                rep_force += casadi.exp(-(((self.x[0, k] - self.static_unmapped_obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.static_unmapped_obs_position[1, i]) ** 2 / 2)))
             #rep_force += 0.5 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1]) ** 2 / 2)))
             self.F_r.append(rep_force)
             self.cost += self.S * self.F_r[k]

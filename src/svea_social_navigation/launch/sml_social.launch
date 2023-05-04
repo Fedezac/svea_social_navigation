@@ -51,10 +51,10 @@
         <param name="use_rviz" value="$(arg use_rviz)"/>
         <param name="is_sim" value="$(arg is_sim)"/>
         <param name="remote_rviz" value="$(arg remote_rviz)" />
-        <!-- Waypoints for floo2 map -->
         <rosparam>
-            state: [3, 1, 1.57, 0] # initial state (x, y, yaw)
-            goal: [3, 8]
+            state: [7.3, 2.9, 1.57, 0] # initial state (x, y, yaw)
+            goal: [7.3, 6.8]
+            static_unmapped_obstacles: [[7.3, 5], [7, 4]]
         </rosparam>
     </node>
 
