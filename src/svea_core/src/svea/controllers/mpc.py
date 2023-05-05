@@ -164,6 +164,7 @@ class MPC(object):
 
             rep_force_dynamic = 0
             for i in range(self.n_static_obstacles):
+                # Predict dynamic obs trajectory using linear motion model and estimated v, theta (dt fixed to 0.1)
                 if k != 0:
                     x = self.dynamic_obs_pos[0, i] + self.dynamic_obs_pos[2, i] * casadi.cos(self.dynamic_obs_pos[3, i]) * 0.1
                     y = self.dynamic_obs_pos[1, i] + self.dynamic_obs_pos[2, i] * casadi.sin(self.dynamic_obs_pos[3, i]) * 0.1
