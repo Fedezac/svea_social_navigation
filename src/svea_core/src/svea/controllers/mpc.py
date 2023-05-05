@@ -3,7 +3,7 @@ import casadi
 from svea.models.generic_mpc import GenericModel
 
 class MPC(object):
-    def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_static_obstacles, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
+    def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_static_obstacles, n_dynamic_obstacles, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
         Init method for MPC class
 
@@ -29,8 +29,10 @@ class MPC(object):
         self.n_states = len(self.model.dae.x)
         self.n_inputs = len(self.model.dae.u)
 
-        # Get max number of of static unmapped obstacles
+        # Get max number of static unmapped obstacles
         self.n_static_obstacles = n_static_obstacles
+        # Get max number of dynamic obstacles
+        self.n_dynamic_obstacles = n_dynamic_obstacles
 
         # Check that there are enough lower and upper bounds for each state/input variable
         assert self.n_states == len(x_lb), f'Number of lower bounds does not correspond to states number, number of states: {self.n_states}, number of lower bounds: {len(x_lb)}'
@@ -49,7 +51,6 @@ class MPC(object):
         self.N = N
         # Get initial state
         self.initial_state = self.model.initial_state
-        
 
         # Get states lower and upped bounds
         self.x_lb = casadi.DM(x_lb)
@@ -68,11 +69,13 @@ class MPC(object):
         self.u = None
         self.reference_state = casadi.DM.zeros(self.n_states, 1)
         self.static_unmapped_obs_position = casadi.DM.zeros(2, self.n_static_obstacles)
+        self.dynamic_obs_pos = casadi.DM.zeros(4, self.n_dynamic_obstacles)
 
         # Cost function related varirables
         self.state_diff = []
         self.angle_diff = []
-        self.F_r = []
+        self.F_r_static = []
+        self.F_r_dynamic = []
         self.cost = 0
 
         # Verbose option
@@ -131,6 +134,7 @@ class MPC(object):
         self.reference_state = self.opti.parameter(self.n_states, self.N + 1)
         self.initial_state = self.opti.parameter(self.n_states, 1)
         self.static_unmapped_obs_position = self.opti.parameter(2, self.n_static_obstacles)
+        self.dynamic_obs_pos = self.opti.parameter(4, self.n_dynamic_obstacles)
 
     def _optimizer_cost_function(self):
         """
@@ -151,13 +155,24 @@ class MPC(object):
             self.angle_diff.append(np.pi - casadi.norm_2(casadi.norm_2(self.x[-1, k] - self.reference_state[-1, k]) - np.pi))
             self.cost += self.angle_diff[k]**2 * self.Q[-1, -1]
 
-            # Compute obstacle repulsive force            
-            rep_force = 0
+            # Compute obstacle repulsive force for static unmapped obstacles          
+            rep_force_static = 0
             for i in range(self.n_static_obstacles):
-                rep_force += casadi.exp(-(((self.x[0, k] - self.static_unmapped_obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.static_unmapped_obs_position[1, i]) ** 2 / 2)))
-            #rep_force += 0.5 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1]) ** 2 / 2)))
-            self.F_r.append(rep_force)
-            self.cost += self.S * self.F_r[k]
+                rep_force_static += casadi.exp(-(((self.x[0, k] - self.static_unmapped_obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.static_unmapped_obs_position[1, i]) ** 2 / 2)))
+            self.F_r_static.append(rep_force_static)
+            self.cost += self.S[0, 0] * self.F_r_static[k]
+
+            rep_force_dynamic = 0
+            for i in range(self.n_static_obstacles):
+                if k != 0:
+                    x = self.dynamic_obs_pos[0, i] + self.dynamic_obs_pos[2, i] * casadi.cos(self.dynamic_obs_pos[3, i]) * 0.1
+                    y = self.dynamic_obs_pos[1, i] + self.dynamic_obs_pos[2, i] * casadi.sin(self.dynamic_obs_pos[3, i]) * 0.1
+                else:
+                    x = self.dynamic_obs_pos[0, i]
+                    y = self.dynamic_obs_pos[1, i]
+                rep_force_dynamic += casadi.exp(-(((self.x[0, k] - x) ** 2 / 2) + ((self.x[1, k] - y) ** 2 / 2))) / (k + 1)
+            self.F_r_dynamic.append(rep_force_dynamic)
+            self.cost += self.S[1, 1] * self.F_r_dynamic[k]
 
             """rep_force = 0
             for i in range(self.n_obs):
@@ -206,7 +221,7 @@ class MPC(object):
         # Set initial state as optimizer constraint
         self.opti.subject_to(self.x[:, [0]] == self.initial_state)
 
-    def get_ctrl(self, initial_state, reference_state, static_unmapped_obs_position):
+    def get_ctrl(self, initial_state, reference_state, static_unmapped_obs_position, dynamic_obs_pos):
         """
         Function to solve optimizer problem and get control from MPC, given initial state and reference state
 
@@ -221,12 +236,14 @@ class MPC(object):
         self.opti.set_value(self.initial_state, initial_state)
         self.opti.set_value(self.reference_state, reference_state)
         self.opti.set_value(self.static_unmapped_obs_position, static_unmapped_obs_position)
+        self.opti.set_value(self.dynamic_obs_pos, dynamic_obs_pos)
+        
         # Solve optimizer problem if it is feasible
         try: 
             self.opti.solve()
         except RuntimeError as e:
             print(f'Cost: {self.opti.debug.value(self.cost)}')
-            for angle, state, r_force in zip(self.angle_diff, self.state_diff, self.F_r):
+            for angle, state, r_force in zip(self.angle_diff, self.state_diff, self.F_r_static):
                 print(f'Angle diff: {self.opti.debug.value(angle)}')
                 print(f'State diff: {self.opti.debug.value(state)}')
                 print(f'Repulsive force: {self.opti.debug.value(r_force)}')
@@ -237,14 +254,15 @@ class MPC(object):
         if self.verbose:
             #print(f'Predicted control sequence: {self.opti.value(self.u[:, :])}')
             print(f'Cost: {self.opti.debug.value(self.cost)}')
-            for angle, state, r_force in zip(self.angle_diff, self.state_diff, self.F_r):
+            for angle, state, r_force_static, r_force_dynamic in zip(self.angle_diff, self.state_diff, self.F_r_static, self.F_r_dynamic):
                 print(f'Angle diff: {self.opti.debug.value(angle)}')
                 print(f'State diff: {self.opti.debug.value(state)}')
-                print(f'Repulsive force: {self.opti.debug.value(r_force)}')
-        #for r_force in self.F_r:
-        #    print(f'MPC Repulsive force: {self.opti.debug.value(r_force)}')
+                print(f'Repulsive force static: {self.opti.debug.value(r_force_static)}')
+                print(f'Repulsive force dynamic: {self.opti.debug.value(r_force_dynamic)}')
+        for r_force in self.F_r_dynamic:
+            print(f'MPC Repulsive force dynamic: {self.opti.debug.value(r_force)}')
         print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
-        print(f'MPC Static Unmapped Obstacles: {self.opti.debug.value(self.static_unmapped_obs_position)}')
+        #print(f'MPC Static Unmapped Obstacles: {self.opti.debug.value(self.static_unmapped_obs_position)}')
         #print(f'MPC State: {self.opti.debug.value(self.x)}')
         #print(f'MPC Reference: {self.opti.debug.value(self.reference_state)}')
         # Get first control generated (not predicted ones)

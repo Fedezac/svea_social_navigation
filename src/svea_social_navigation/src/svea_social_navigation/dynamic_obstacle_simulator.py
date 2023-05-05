@@ -2,7 +2,8 @@
 import rospy
 import numpy as np
 from svea_social_navigation.static_unmapped_obstacle_simulator import StaticUnmappedObstacleSimulator
-from visualization_msgs.msg import Marker, MarkerArray
+from visualization_msgs.msg import MarkerArray
+from threading import *
 
 def load_param(name, value=None):
     """
@@ -44,22 +45,30 @@ class DynamicObstacleSimulator(StaticUnmappedObstacleSimulator):
         """
         obstacle_msg = MarkerArray()
         obstacle_msg.markers = self.create_marker_array()
+        # Create Markers
         for i in range(np.shape(self.obs)[0]):
-            delta_x = self.obs[i, 2] * np.cos(self.obs[i, 3]) * self.dt
-            delta_y = self.obs[i, 2] * np.sin(self.obs[i, 3]) * self.dt
-            self.obs[i, 0] += delta_x
-            self.obs[i, 1] += delta_y
-            # Check condition on x and y bounds
-            if (self.obs[i, 0] < self.obs[i, 4] or self.obs[i, 0] > self.obs[i, 5]) or (self.obs[i, 1] < self.obs[i, 6] or self.obs[i, 1] > self.obs[i, 7]):
-                self.obs[i, 2] = -self.obs[i, 2]
-            obstacle_msg.markers[i] = self.create_marker(self.obs[i, 0], self.obs[i, 1] ,i)
-        print(self.obs)
-        self.pub.publish(obstacle_msg)
+            obstacle_msg.markers[i] = self.create_marker(self.obs[i, 0], self.obs[i, 1], i)
+        while not rospy.is_shutdown():
+            for i in range(np.shape(self.obs)[0]):
+                # Compute delta_x and delta_y
+                delta_x = self.obs[i, 2] * np.cos(self.obs[i, 3]) * self.dt
+                delta_y = self.obs[i, 2] * np.sin(self.obs[i, 3]) * self.dt
+                # Update new positions of both x and y
+                self.obs[i, 0] += delta_x
+                self.obs[i, 1] += delta_y
+                # Check condition on x and y bounds
+                if (self.obs[i, 0] < self.obs[i, 4] or self.obs[i, 0] > self.obs[i, 5]) or (self.obs[i, 1] < self.obs[i, 6] or self.obs[i, 1] > self.obs[i, 7]):
+                    self.obs[i, 2] = -self.obs[i, 2]
+                # Create Marker object with new
+                obstacle_msg.markers[i].pose.position.x = self.obs[i, 0]
+                obstacle_msg.markers[i].pose.position.y = self.obs[i, 1]
+            self.pub.publish(obstacle_msg)
+            rospy.sleep(self.dt)
 
-if __name__ == '__main__':
-    rospy.init_node('test')
-    a = DynamicObstacleSimulator([[0, 0, 0.3, 0, 0, 5, 0, 5], [0, 0, 0.3, np.pi/2, 0, 5, 0, 5]], 1)
-    while True:
-        a.publish_obstacle_msg()
-        rospy.sleep(1)
+    def thread_publish(self):
+        """
+        Method for creating and starting a thread, so that dynamic obstacles move asynchronously wrt other software components
+        """
+        t = Thread(target=self.publish_obstacle_msg)
+        t.start()
 

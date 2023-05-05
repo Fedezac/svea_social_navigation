@@ -102,6 +102,7 @@ class SocialNavigation(object):
     TURN_SPEED = 0.2
     WINDOW_LEN = 10
     MAX_N_STATIC_OBSTACLES = 10
+    MAX_N_DYNAMIC_OBSTACLES = 10
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
 
     def __init__(self):
@@ -143,13 +144,13 @@ class SocialNavigation(object):
 
         # Initialize dynamic obstacles simulator
         self.DYNAMIC_OBS = load_param('~dynamic_obstacles', [])
-        self.static_unmapped_obs_simulator = DynamicObstacleSimulator(self.DYNAMIC_OBS, self.DELTA_TIME)
-        self.static_unmapped_obs_simulator.publish_obstacle_msg()
+        self.dynamic_obs_simulator = DynamicObstacleSimulator(self.DYNAMIC_OBS, self.DELTA_TIME)
+        self.dynamic_obs_simulator.thread_publish()
 
         # Initialize static unmapped obstacles simulator
         self.STATIC_UNMAPPED_OBS = load_param('~static_unmapped_obstacles', [])
-        self.dynamic_obs_simulator = StaticUnmappedObstacleSimulator(self.STATIC_UNMAPPED_OBS)
-        self.dynamic_obs_simulator.publish_obstacle_msg()
+        self.static_unmapped_obs_simulator = StaticUnmappedObstacleSimulator(self.STATIC_UNMAPPED_OBS)
+        self.static_unmapped_obs_simulator.publish_obstacle_msg()
 
         if self.IS_SIM:
             # Simulator needs a model to simulate
@@ -187,18 +188,17 @@ class SocialNavigation(object):
         self.controller = MPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[5, 5, .1, .1],
+            Q=[6, 6, .1, .1],
             R=[1, .1],
-            S=[4],
+            S=[4, 52],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
             u_ub=u_b,
             n_static_obstacles=self.MAX_N_STATIC_OBSTACLES,
+            n_dynamic_obstacles=self.MAX_N_DYNAMIC_OBSTACLES,
             verbose=False
         )
-        # Create matrix of local obstacles
-        self.local_obstacles = np.full((2, self.apf.get_map_dimensions()[0] * self.apf.get_map_dimensions()[1]), np.array([[-100000.0, -100000.0]]).T)
 
     def wait_for_state_from_localizer(self):
         """Wait for a new state to arrive, or until a maximum time
@@ -222,9 +222,6 @@ class SocialNavigation(object):
             return deepcopy(self.state)
         else:
             return None
-
-    def predict_dynamic_obstacles_trajectory(self):
-        pass
 
     def plan(self):
         # Compute safe global path
@@ -307,21 +304,31 @@ class SocialNavigation(object):
             self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
             print(f'State: {self.x0}')
 
-
+        # Get static unmapped obstacles position
         static_unmapped_obs_pos = self.static_unmapped_obs_simulator.obs
         # Initialize array of static unmapped obstacles
-        local_static_unmapped_obstacles = np.full((2, self.MAX_N_STATIC_OBSTACLES), np.array([[-100000.0, -100000.0]]).T)
-        # Get position of obstacles deteceted in the local costmap
-        local_obs = self.apf.get_local_obstacles(static_unmapped_obs_pos)
+        local_static_unmapped_obstacles = np.full((2, self.MAX_N_STATIC_OBSTACLES), -100000.0)
+        # Get position of obstacles detected in the local costmap
+        static_unmapped_local_obs = self.apf.get_local_obstacles(static_unmapped_obs_pos)
         # Insert them into MPC ready structure
-        local_static_unmapped_obstacles[:, 0:np.shape(local_obs)[0]] = local_obs.T
+        local_static_unmapped_obstacles[:, 0:np.shape(static_unmapped_local_obs)[0]] = static_unmapped_local_obs.T
+        print(local_static_unmapped_obstacles)
+
+        # Initialize array of dynamic obstacles
+        local_dynamic_obstacles = np.full((4, self.MAX_N_DYNAMIC_OBSTACLES), np.array([[-100000.0, -100000.0, 0, 0]]).T)
+        if (len(self.dynamic_obs_simulator.obs)):
+            # Get dynamic obstacle position, v, theta
+            dynamic_obs_pose = self.dynamic_obs_simulator.obs[:, 0:4]
+            # Get position of obstacles detected in the local costmap
+            dynamic_local_obs = self.apf.get_local_obstacles(dynamic_obs_pose)
+            # Insert them into MPC structure
+            local_dynamic_obstacles[:, 0:np.shape(dynamic_local_obs)[0]] = dynamic_local_obs.T
 
         if self.DEBUG:
             plt.clf()
             plt.scatter(np.array(self.pi._world.OBS)[:, 0], np.array(self.pi._world.OBS)[:, 1])
             plt.scatter(self.x0[0], self.x0[1])
-            plt.scatter(local_static_unmapped_obstacles[:, 0], local_static_unmapped_obstacles[:,1])
-            #plt.scatter(self.local_obstacles[0, closest_obs], self.local_obstacles[1, closest_obs])
+            plt.scatter(static_unmapped_local_obs[:, 0], static_unmapped_local_obs[:,1])
             plt.draw()
             plt.pause(0.01)
         
@@ -335,10 +342,9 @@ class SocialNavigation(object):
             last_iteration_points = self.path[self.waypoint_idx:, :]
             while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
                 last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, local_static_unmapped_obstacles)
+            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, local_static_unmapped_obstacles, local_dynamic_obstacles)
         else:
-            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, local_static_unmapped_obstacles)
-        #u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx, :], self.local_obstacles)
+            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, local_static_unmapped_obstacles, local_dynamic_obstacles)
 
         # Get optimal velocity (by integrating once the acceleration command and summing it to the current speed) and steering controls
         velocity = u[0, 0] * self.DELTA_TIME + self.x0[2]
