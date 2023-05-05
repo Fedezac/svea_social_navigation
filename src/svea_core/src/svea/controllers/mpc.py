@@ -260,8 +260,8 @@ class MPC(object):
                 print(f'State diff: {self.opti.debug.value(state)}')
                 print(f'Repulsive force static: {self.opti.debug.value(r_force_static)}')
                 print(f'Repulsive force dynamic: {self.opti.debug.value(r_force_dynamic)}')
-        for r_force in self.F_r_dynamic:
-            print(f'MPC Repulsive force dynamic: {self.opti.debug.value(r_force)}')
+        #for r_force in self.F_r_dynamic:
+        #    print(f'MPC Repulsive force dynamic: {self.opti.debug.value(r_force)}')
         print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
         #print(f'MPC Static Unmapped Obstacles: {self.opti.debug.value(self.static_unmapped_obs_position)}')
         #print(f'MPC State: {self.opti.debug.value(self.x)}')
