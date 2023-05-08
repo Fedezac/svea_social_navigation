@@ -158,12 +158,12 @@ class MPC(object):
             # Compute obstacle repulsive force for static unmapped obstacles          
             rep_force_static = 0
             for i in range(self.n_static_obstacles):
-                rep_force_static += casadi.exp(-(((self.x[0, k] - self.static_unmapped_obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.static_unmapped_obs_position[1, i]) ** 2 / 2)))
+                rep_force_static += casadi.exp(-(((self.x[0, k] - self.static_unmapped_obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.static_unmapped_obs_position[1, i]) ** 2 / 2))) / (k + 1)
             self.F_r_static.append(rep_force_static)
             self.cost += self.S[0, 0] * self.F_r_static[k]
 
             rep_force_dynamic = 0
-            for i in range(self.n_static_obstacles):
+            for i in range(self.n_dynamic_obstacles):
                 # Predict dynamic obs trajectory using linear motion model and estimated v, theta (dt fixed to 0.1)
                 if k != 0:
                     x = self.dynamic_obs_pos[0, i] + self.dynamic_obs_pos[2, i] * casadi.cos(self.dynamic_obs_pos[3, i]) * 0.1
@@ -244,10 +244,11 @@ class MPC(object):
             self.opti.solve()
         except RuntimeError as e:
             print(f'Cost: {self.opti.debug.value(self.cost)}')
-            for angle, state, r_force in zip(self.angle_diff, self.state_diff, self.F_r_static):
+            for angle, state, r_force_static, r_force_dynamic in zip(self.angle_diff, self.state_diff, self.F_r_static, self.F_r_dynamic):
                 print(f'Angle diff: {self.opti.debug.value(angle)}')
                 print(f'State diff: {self.opti.debug.value(state)}')
-                print(f'Repulsive force: {self.opti.debug.value(r_force)}')
+                print(f'Repulsive force static: {self.opti.debug.value(r_force_static)}')
+                print(f'Repulsive force dynamic: {self.opti.debug.value(r_force_dynamic)}')
             self.opti.debug.show_infeasibilities()
             #self.opti.debug.x_describe()
             #self.opti.debug.g_describe()
