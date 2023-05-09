@@ -200,14 +200,14 @@ class MPC(object):
             self.cost += self.S[1, 1] * self.F_r_dynamic[k]
 
             sfm = 0
+            e_p = casadi.MX(2, 1)
             for i in range(self.n_pedestrians):
-                x, y = self.predict_position(self.pedestrians_pos[:, i], k)
-                e_p = casadi.MX(2, 1)
+                x, y = self.predict_position(self.pedestrians_pos[:, i], k) 
                 e_p[0] = self.pedestrians_pos[2, i] * casadi.cos(self.pedestrians_pos[3, i])
                 e_p[1] = self.pedestrians_pos[2, i] * casadi.sin(self.pedestrians_pos[3, i])
                 n =  (self.x[0:2, k] - self.pedestrians_pos[0:2, i]) / casadi.norm_2(self.x[0:2, k] - self.pedestrians_pos[0:2, i])
                 omega = 0.59 + (1 - 0.59) * ((1 + casadi.dot(-n, e_p)) / 2)
-                sfm += 2.66 * casadi.exp(0.65 - casadi.norm_2(self.x[0:2, k] - self.pedestrians_pos[0:2, i]) / 0.79) * omega
+                sfm += (2.66 * casadi.exp(0.65 - casadi.norm_2(self.x[0:2, k] - self.pedestrians_pos[0:2, i]) / 0.79) * omega) / (k + 1)
             self.F_r_sfm.append(sfm)
             self.cost += self.S[2, 2] * self.F_r_sfm[k] 
 
