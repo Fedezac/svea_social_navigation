@@ -1,0 +1,10 @@
+waypoints:
+  waypoint_id_1: [4, 6.6, 0.5]
+  waypoint_id_2: [8, 4.9, 0.5]
+  waypoint_id_3: [8, 3, 0.5]
+agent_1:
+  n: 1
+  x: 3
+  y: 7.7
+  w: [waypoint_id_1, waypoint_id_2, waypoint_id_3]
+

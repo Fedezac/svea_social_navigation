@@ -45,7 +45,7 @@
     </group>
 
     <!-- Start RViz -->
-    <node if="$(eval use_rviz and not remote_rviz)" name="rviz" pkg="rviz" type="rviz" args="-d $(find svea_core)/rviz/SVEA_floor2.rviz"/>
+    <node if="$(eval use_rviz and not remote_rviz)" name="rviz" pkg="rviz" type="rviz" args="-d $(find svea_social_navigation)/rviz/config.rviz"/>
     <!-- Start pure_pursuit -->
     <node name="svea_social_navigation" pkg="svea_social_navigation" type="social_navigation.py" output="screen">
         <param name="use_rviz" value="$(arg use_rviz)"/>
@@ -61,7 +61,8 @@
 
     <!-- Run the costmap node -->
     <group if="$(arg is_sim)">
-        <node name="tf_sim_lidar_to_base_link" pkg="tf" type="static_transform_publisher" args="0.30 0 0.22 0 0 0 $(arg svea_name)/base_link $(arg svea_name)/sim_lidar 100" />
+        <node name="tf_sim_lidar_to_base_link" pkg="tf" type="static_transform_publisher" args="0.30 0 0.22 0 0 0 $(arg
+        svea_name)/base_link $(arg svea_name)/sim_lidar 100" />
         <node name="static_unmapped_obstacle_simulator" pkg="svea_social_navigation" type="static_unmapped_obstacle_simulator.py" />
         <node name="costmap_node" pkg="costmap_2d" type="costmap_2d_node">
             <rosparam file="$(find svea_social_navigation)/config/costmap_params_sim.yaml" command="load" ns="costmap" />
@@ -84,4 +85,7 @@
         static_unmapped_obstacles: [[7, 5.6], [7.2, 5]]
         dynamic_obstacles: [[5.3, 3.7, 0.3, 0, 5, 6, 3, 5], [5.3, 4.7, 0.3, 0, 5, 6, 3, 5], [8, 1.6, 0.3, 1.57, 7, 9, 1, 2]]
     -->
+
+    <!-- Pedestrian Simulator -->
+    <include file="$(find svea_social_navigation)/launch/pedsim.launch"/>
 </launch>
