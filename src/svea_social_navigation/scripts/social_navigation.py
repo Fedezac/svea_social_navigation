@@ -20,10 +20,10 @@ from svea_planners.planner_interface import PlannerInterface
 from svea_social_navigation.apf import ArtificialPotentialFieldHelper
 from svea_social_navigation.static_unmapped_obstacle_simulator import StaticUnmappedObstacleSimulator
 from svea_social_navigation.dynamic_obstacle_simulator import DynamicObstacleSimulator
+from svea_social_navigation.sfm_helper import SFMHelper
 
 # ROS imports
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
-from visualization_msgs.msg import MarkerArray
 from tf.transformations import quaternion_from_euler
 from nav_msgs.msg import Path
 
@@ -103,6 +103,7 @@ class SocialNavigation(object):
     WINDOW_LEN = 10
     MAX_N_STATIC_OBSTACLES = 10
     MAX_N_DYNAMIC_OBSTACLES = 10
+    MAX_N_PEDESTRIANS = 10
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
 
     def __init__(self):
@@ -152,6 +153,9 @@ class SocialNavigation(object):
         self.static_unmapped_obs_simulator = StaticUnmappedObstacleSimulator(self.STATIC_UNMAPPED_OBS)
         self.static_unmapped_obs_simulator.publish_obstacle_msg()
 
+        # Initialize social force model helper
+        self.sfm_helper = SFMHelper()
+
         if self.IS_SIM:
             # Simulator needs a model to simulate
             self.sim_model = SimpleBicycleModel(self.state)
@@ -190,13 +194,14 @@ class SocialNavigation(object):
             N=self.WINDOW_LEN,
             Q=[6, 6, .1, .1],
             R=[1, .1],
-            S=[30, 52],
+            S=[30, 52, 1],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
             u_ub=u_b,
             n_static_obstacles=self.MAX_N_STATIC_OBSTACLES,
             n_dynamic_obstacles=self.MAX_N_DYNAMIC_OBSTACLES,
+            n_pedestrians=self.MAX_N_PEDESTRIANS,
             verbose=False
         )
 
@@ -267,6 +272,50 @@ class SocialNavigation(object):
         self.data_handler.update_target((self.path[self.waypoint_idx, 0], self.path[self.waypoint_idx, 1]))
         self.data_handler.visualize_data()
 
+    def get_local_agents(self):
+        """
+        Function to retrieve agents (i.e. static unmapped obstacles, dynamic obstacles, pedestrians) that are inside the
+        local costmap bounds
+
+        :return: local static unmapped obstacles, dynamic obstacles, pedestrians
+        :rtype: list[tuple[float]]
+        """
+        # Get static unmapped obstacles position
+        static_unmapped_obs_pos = self.static_unmapped_obs_simulator.obs
+        # Initialize array of static unmapped obstacles
+        local_static_mpc = np.full((2, self.MAX_N_STATIC_OBSTACLES), -100000.0)
+        # Get position of obstacles detected in the local costmap
+        static_unmapped_local_obs = self.apf.get_local_obstacles(static_unmapped_obs_pos)
+        # Insert them into MPC ready structure
+        local_static_mpc[:, 0:np.shape(static_unmapped_local_obs)[0]] = static_unmapped_local_obs.T
+
+        # Initialize array of dynamic obstacles
+        local_dynamic_mpc = np.full((4, self.MAX_N_DYNAMIC_OBSTACLES), np.array([[-100000.0, -100000.0, 0, 0]]).T)
+        if (len(self.dynamic_obs_simulator.obs)):
+            # Get dynamic obstacle position, v, theta
+            dynamic_obs_pose = self.dynamic_obs_simulator.obs[:, 0:4]
+            # Get position of obstacles detected in the local costmap
+            dynamic_local_obs = self.apf.get_local_obstacles(dynamic_obs_pose)
+            # Insert them into MPC structure
+            local_dynamic_mpc[:, 0:np.shape(dynamic_local_obs)[0]] = dynamic_local_obs.T
+
+        # Initialize empty pedestrian array
+        pedestrians = []
+        local_pedestrians_mpc = np.full((4, self.MAX_N_PEDESTRIANS), np.array([[-100000.0, -100000.0, 0, 0]]).T)
+        # Acquire mutex
+        self.sfm_helper.mutex.acquire()
+        # For every pedestrian, insert it into the array (necessary since in sfm pedestrians are stored in a dict)
+        for p in self.sfm_helper.pedestrian_states:
+            pedestrians.append(self.sfm_helper.pedestrian_states[p])
+        # Release mutex
+        self.sfm_helper.mutex.release()
+        # Keep only pedestrians that are in the local costmap
+        local_pedestrians = self.apf.get_local_obstacles(pedestrians[0:2])
+        # Insert them into MPC structure
+        local_pedestrians_mpc[:, 0:np.shape(local_pedestrians)[0]] = local_pedestrians.T
+
+        return local_static_mpc, local_dynamic_mpc, local_pedestrians_mpc
+
     def keep_alive(self):
         """
         Keep alive function based on the distance to the goal and current state of node
@@ -275,6 +324,7 @@ class SocialNavigation(object):
         :rtype: boolean
         """
         distance = np.linalg.norm(np.array(self.GOAL) - np.array([self.x0[0], self.x0[1]]))
+        #return not (rospy.is_shutdown())
         return not (rospy.is_shutdown() or distance < self.GOAL_THRESH)
 
     def run(self):
@@ -304,31 +354,14 @@ class SocialNavigation(object):
             self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
             print(f'State: {self.x0}')
 
-        # Get static unmapped obstacles position
-        static_unmapped_obs_pos = self.static_unmapped_obs_simulator.obs
-        # Initialize array of static unmapped obstacles
-        local_static_unmapped_obstacles = np.full((2, self.MAX_N_STATIC_OBSTACLES), -100000.0)
-        # Get position of obstacles detected in the local costmap
-        static_unmapped_local_obs = self.apf.get_local_obstacles(static_unmapped_obs_pos)
-        # Insert them into MPC ready structure
-        local_static_unmapped_obstacles[:, 0:np.shape(static_unmapped_local_obs)[0]] = static_unmapped_local_obs.T
-        print(local_static_unmapped_obstacles)
-
-        # Initialize array of dynamic obstacles
-        local_dynamic_obstacles = np.full((4, self.MAX_N_DYNAMIC_OBSTACLES), np.array([[-100000.0, -100000.0, 0, 0]]).T)
-        if (len(self.dynamic_obs_simulator.obs)):
-            # Get dynamic obstacle position, v, theta
-            dynamic_obs_pose = self.dynamic_obs_simulator.obs[:, 0:4]
-            # Get position of obstacles detected in the local costmap
-            dynamic_local_obs = self.apf.get_local_obstacles(dynamic_obs_pose)
-            # Insert them into MPC structure
-            local_dynamic_obstacles[:, 0:np.shape(dynamic_local_obs)[0]] = dynamic_local_obs.T
+        # Get local static unmapped obstacles, local dynamic obstacles, local pedestrians
+        local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc = self.get_local_agents()
 
         if self.DEBUG:
             plt.clf()
             plt.scatter(np.array(self.pi._world.OBS)[:, 0], np.array(self.pi._world.OBS)[:, 1])
             plt.scatter(self.x0[0], self.x0[1])
-            plt.scatter(static_unmapped_local_obs[:, 0], static_unmapped_local_obs[:,1])
+            plt.scatter(local_static_mpc[:, 0], local_static_mpc[:,1])
             plt.draw()
             plt.pause(0.01)
         
@@ -342,9 +375,9 @@ class SocialNavigation(object):
             last_iteration_points = self.path[self.waypoint_idx:, :]
             while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
                 last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, local_static_unmapped_obstacles, local_dynamic_obstacles)
+            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc)
         else:
-            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, local_static_unmapped_obstacles, local_dynamic_obstacles)
+            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc)
 
         # Get optimal velocity (by integrating once the acceleration command and summing it to the current speed) and steering controls
         velocity = u[0, 0] * self.DELTA_TIME + self.x0[2]

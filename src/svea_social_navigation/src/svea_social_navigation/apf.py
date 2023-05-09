@@ -90,7 +90,7 @@ class ArtificialPotentialFieldHelper(object):
         
     def get_local_obstacles(self, obs):
         """
-        Function to retrieve detected obstacles that are in the local obstacle
+        Function to retrieve detected obstacles that are in the local map
 
         :param obs: list of obstacles
         :type obs: list[tuple[float]]
@@ -104,25 +104,6 @@ class ArtificialPotentialFieldHelper(object):
             if self._map_x < p[0] < map_x_limit and self._map_y < p[1] < map_y_limit:
                 loc_obs.append(p)
         return np.array(loc_obs)
-    
-    def predict_dynamic_obstacles_trajectory(self, obs, N, dt):
-        if np.shape(obs)[0] != 0:
-            traj = np.zeros((np.shape(obs)[0], np.shape(obs)[1], N + 1))
-            traj[:, :, 0] = obs
-            # Compute delta_x and delta_y for each obstacle
-            delta_x = obs[:, 2] * np.cos(obs[:, 3]) * dt
-            delta_y = obs[:, 2] * np.sin(obs[:, 3]) * dt
-            # For each obstacle
-            for i in range(np.shape(obs)[0]):
-                # Predict N future positions
-                for j in range(1, N + 1):
-                    # Update new positions of both x and y
-                    traj[i, :, j] = traj[i, :, j - 1]
-                    traj[i, 0, j] += delta_x[i]
-                    traj[i, 1, j] += delta_y[i]
-            return traj
-        else:
-            return []
     
     def get_map_dimensions(self):
         """
