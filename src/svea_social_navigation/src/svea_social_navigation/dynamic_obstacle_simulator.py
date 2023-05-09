@@ -38,6 +38,7 @@ class DynamicObstacleSimulator(StaticUnmappedObstacleSimulator):
         self.r = 0.0
         self.g = 0.5
         self.b = 1.0
+        self.mutex = Lock()
     
     def publish_obstacle_msg(self):
         """
@@ -53,12 +54,16 @@ class DynamicObstacleSimulator(StaticUnmappedObstacleSimulator):
                 # Compute delta_x and delta_y
                 delta_x = self.obs[i, 2] * np.cos(self.obs[i, 3]) * self.dt
                 delta_y = self.obs[i, 2] * np.sin(self.obs[i, 3]) * self.dt
+                # Get mutex
+                self.mutex.acquire()
                 # Update new positions of both x and y
                 self.obs[i, 0] += delta_x
                 self.obs[i, 1] += delta_y
                 # Check condition on x and y bounds
                 if (self.obs[i, 0] < self.obs[i, 4] or self.obs[i, 0] > self.obs[i, 5]) or (self.obs[i, 1] < self.obs[i, 6] or self.obs[i, 1] > self.obs[i, 7]):
                     self.obs[i, 2] = -self.obs[i, 2]
+                # Release mutex
+                self.mutex.release()
                 # Create Marker object with new
                 obstacle_msg.markers[i].pose.position.x = self.obs[i, 0]
                 obstacle_msg.markers[i].pose.position.y = self.obs[i, 1]

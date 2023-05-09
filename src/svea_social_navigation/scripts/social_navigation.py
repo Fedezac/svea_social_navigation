@@ -291,13 +291,22 @@ class SocialNavigation(object):
 
         # Initialize array of dynamic obstacles
         local_dynamic_mpc = np.full((4, self.MAX_N_DYNAMIC_OBSTACLES), np.array([[-100000.0, -100000.0, 0, 0]]).T)
+        # Acquire mutex
+        print("STUCK")
+        self.dynamic_obs_simulator.mutex.acquire()
         if (len(self.dynamic_obs_simulator.obs)):
             # Get dynamic obstacle position, v, theta
             dynamic_obs_pose = self.dynamic_obs_simulator.obs[:, 0:4]
+            # Release mutex
+            self.dynamic_obs_simulator.mutex.release()
             # Get position of obstacles detected in the local costmap
             dynamic_local_obs = self.apf.get_local_obstacles(dynamic_obs_pose)
             # Insert them into MPC structure
             local_dynamic_mpc[:, 0:np.shape(dynamic_local_obs)[0]] = dynamic_local_obs.T
+        else:
+            # Release mutex as soon as possible
+            self.dynamic_obs_simulator.mutex.release()
+        
 
         # Initialize empty pedestrian array
         pedestrians = []

@@ -211,25 +211,6 @@ class MPC(object):
             self.F_r_sfm.append(sfm)
             self.cost += self.S[2, 2] * self.F_r_sfm[k] 
 
-            """rep_force = 0
-            for i in range(self.n_obs):
-                rep_force += 2 * casadi.exp(-(((self.x[0, k] - self.obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.obs_position[1, i]) ** 2 / 2)))
-            self.F_r.append(rep_force)
-            self.cost += self.S * self.F_r[k]
-
-            j_obs = 0
-            for i in range(self.n_obs):
-                j_obs += (2 * self.x[2, k]) / ((self.obs_position[0, i] - self.x[0, k])**2 + (self.obs_position[1, i] - self.x[1, k])**2 + 0.0001)
-            self.F_r.append(j_obs)
-            self.cost += self.S * self.F_r[k]
-
-            exp = 0
-            for i in range(self.n_obs):
-                exp += casadi.if_else(self.obs_position[0, i] != -100000.0, casadi.sqrt((self.x[0, k] - self.obs_position[0, i]) ** 2 + (self.x[1, k] - self.obs_position[1, i]) ** 2), 0, True)
-            exp = casadi.if_else(exp == 0, 100, exp)
-            self.F_r.append(0.5 * self.K_R * casadi.exp(-exp))
-            self.cost += self.S * self.F_r[k]"""
-
             if k < self.N:
                 # Weight and add to cost the control effort
                 self.cost += self.u[:, k].T @ self.R @ self.u[:, k]
@@ -300,12 +281,9 @@ class MPC(object):
                 print(f'Repulsive force static: {self.opti.debug.value(r_force_static)}')
                 print(f'Repulsive force dynamic: {self.opti.debug.value(r_force_dynamic)}')
                 print(f'SFM: {self.opti.debug.value(r_force_sfm)}')
-        for r_force in self.F_r_sfm:
-            print(f'MPC Repulsive sfmc: {self.opti.debug.value(r_force)}')
+        #for r_force in self.F_r_sfm:
+        #    print(f'MPC Repulsive sfmc: {self.opti.debug.value(r_force)}')
         print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
-        #print(f'MPC Static Unmapped Obstacles: {self.opti.debug.value(self.static_unmapped_obs_position)}')
-        #print(f'MPC State: {self.opti.debug.value(self.x)}')
-        #print(f'MPC Reference: {self.opti.debug.value(self.reference_state)}')
         # Get first control generated (not predicted ones)
         u_optimal = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         # Get new predicted position
