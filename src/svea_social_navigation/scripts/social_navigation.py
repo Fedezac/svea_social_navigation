@@ -194,7 +194,7 @@ class SocialNavigation(object):
             N=self.WINDOW_LEN,
             Q=[6, 6, .1, .1],
             R=[1, .1],
-            S=[30, 52, 10],
+            S=[30, 52, 15],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
@@ -292,7 +292,6 @@ class SocialNavigation(object):
         # Initialize array of dynamic obstacles
         local_dynamic_mpc = np.full((4, self.MAX_N_DYNAMIC_OBSTACLES), np.array([[-100000.0, -100000.0, 0, 0]]).T)
         # Acquire mutex
-        print("STUCK")
         self.dynamic_obs_simulator.mutex.acquire()
         if (len(self.dynamic_obs_simulator.obs)):
             # Get dynamic obstacle position, v, theta

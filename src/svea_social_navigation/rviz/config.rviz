@@ -302,7 +302,7 @@ Visualization Manager:
       Marker Topic: /static_unmapped_obstacles
       Name: Static Unmapped Obstacles
       Namespaces:
-        static_unmapped_obstacle_simulator: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -462,9 +462,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.0647966861724854
+      Pitch: 0.8997968435287476
       Target Frame: base_link
-      Yaw: 4.749983787536621
+      Yaw: 4.229973793029785
     Saved: ~
 Window Geometry:
   Displays:
