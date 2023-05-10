@@ -175,6 +175,8 @@ class SocialNavigation(object):
                 self.localizer = MotionCaptureInterface(self.SVEA_NAME).start()
             else:
                 self.localizer = LocalizationInterface().start()
+            # set up automatic state logging
+            self.localizer.add_callback(self.data_handler.log_state)
 
         # Start simulator
         if self.IS_SIM:
