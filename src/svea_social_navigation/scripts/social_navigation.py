@@ -169,7 +169,7 @@ class SocialNavigation(object):
             # Start lidar
             self.lidar = Lidar().start()
             # Start actuation interface 
-            self.actuation = ActuationInterface().start()
+            self.actuation = ActuationInterface(vehicle_name=self.SVEA_NAME).start()
             # Start localization interface based on which localization method is being used
             if self.IS_MOCAP:
                 self.localizer = MotionCaptureInterface(self.SVEA_NAME).start()
