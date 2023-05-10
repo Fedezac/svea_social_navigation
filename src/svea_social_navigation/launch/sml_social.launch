@@ -34,7 +34,7 @@
             <param name="baud" value="250000"/>
         </node>
 
-        <group if="$(arg is_mocap)">
+        <group unless="$(arg is_mocap)">
             <!-- Start localization -->
             <include file="$(find svea_sensors)/launch/localize.launch">
                 <arg name="initial_pose_x" value="$(arg initial_pose_x)" />
@@ -52,8 +52,8 @@
         <param name="is_sim" value="$(arg is_sim)"/>
         <param name="remote_rviz" value="$(arg remote_rviz)" />
         <rosparam>
-            state: [7.6, 2.9, 1.57, 0] # initial state (x, y, yaw)
-            goal: [7.6, 6.8]
+            state: [3.2, 3.2, 1.57, 0] # initial state (x, y, yaw)
+            goal: [4.75, 7.3]
             static_unmapped_obstacles: []
             dynamic_obstacles: [] # (x, y, v, theta, x_lb, x_ub, y_lb, y_ub)
         </rosparam>
@@ -87,5 +87,7 @@
     -->
 
     <!-- Pedestrian Simulator -->
-    <include file="$(find svea_social_navigation)/launch/pedsim.launch"/>
+    <group if="$(arg is_sim)">
+        <include file="$(find svea_social_navigation)/launch/pedsim.launch"/>
+    </group>
 </launch>
