@@ -3,6 +3,7 @@ import casadi
 from svea.models.generic_mpc import GenericModel
 
 class MPC(object):
+    ROBOT_RADIUS = 0.15
     def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_static_obstacles, n_dynamic_obstacles, n_pedestrians, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
         Init method for MPC class
@@ -188,14 +189,14 @@ class MPC(object):
             # Compute obstacle repulsive force for static unmapped obstacles          
             rep_force_static = 0
             for i in range(self.n_static_obstacles):
-                rep_force_static += casadi.exp(-(((self.x[0, k] - self.static_unmapped_obs_position[0, i]) ** 2 / 2) + ((self.x[1, k] - self.static_unmapped_obs_position[1, i]) ** 2 / 2))) / (k + 1)
+                rep_force_static += casadi.exp(-((((self.x[0, k] - self.static_unmapped_obs_position[0, i]) ** 2  - self.ROBOT_RADIUS) / 2) + (((self.x[1, k] - self.static_unmapped_obs_position[1, i]) ** 2 - self.ROBOT_RADIUS) / 2))) / (k + 1)
             self.F_r_static.append(rep_force_static)
             self.cost += self.S[0, 0] * self.F_r_static[k]
 
             rep_force_dynamic = 0
             for i in range(self.n_dynamic_obstacles):
                 x, y = self.predict_position(self.dynamic_obs_pos[:, i], k)
-                rep_force_dynamic += casadi.exp(-(((self.x[0, k] - x) ** 2 / 2) + ((self.x[1, k] - y) ** 2 / 2))) / (k + 1)
+                rep_force_dynamic += casadi.exp(-((((self.x[0, k] - x) ** 2 - self.ROBOT_RADIUS) / 2) + (((self.x[1, k] - y) ** 2 - self.ROBOT_RADIUS) / 2))) / (k + 1)
             self.F_r_dynamic.append(rep_force_dynamic)
             self.cost += self.S[1, 1] * self.F_r_dynamic[k]
 
