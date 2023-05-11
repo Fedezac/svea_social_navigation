@@ -4,8 +4,6 @@ import numpy as np
 import rospy
 from copy import deepcopy
 
-from matplotlib import pyplot as plt
-
 # SVEA imports
 from svea.controllers.mpc import MPC
 from svea.sensors import Lidar
@@ -169,7 +167,7 @@ class SocialNavigation(object):
             # Start lidar
             self.lidar = Lidar().start()
             # Start actuation interface 
-            self.actuation = ActuationInterface(vehicle_name=self.SVEA_NAME).start()
+            self.actuation = ActuationInterface().start()
             # Start localization interface based on which localization method is being used
             if self.IS_MOCAP:
                 self.localizer = MotionCaptureInterface(self.SVEA_NAME).start()
@@ -342,7 +340,6 @@ class SocialNavigation(object):
         """
         # Plan a feasible path
         self.plan()
-        self.waypoint_idx = 0
         # Spin until alive
         while self.keep_alive():
             self.spin()
@@ -357,22 +354,15 @@ class SocialNavigation(object):
         if not self.IS_SIM:
             safe = self.localizer.is_ready
             # Wait for state from localization interface
+            # TODO: does not work
             self.state = self.wait_for_state_from_localizer()
             self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
         else:
             self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
-            print(f'State: {self.x0}')
+        print(f'State: {self.x0}')
 
         # Get local static unmapped obstacles, local dynamic obstacles, local pedestrians
         local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc = self.get_local_agents()
-
-        if self.DEBUG:
-            plt.clf()
-            plt.scatter(np.array(self.pi._world.OBS)[:, 0], np.array(self.pi._world.OBS)[:, 1])
-            plt.scatter(self.x0[0], self.x0[1])
-            plt.scatter(local_static_mpc[:, 0], local_static_mpc[:,1])
-            plt.draw()
-            plt.pause(0.01)
         
         # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of
         # index out of bounds
