@@ -16,15 +16,15 @@ pointcloud_layer:
   footprint_clearing_enabled: false
   scan: 
     data_type: PointCloud
-    topic: /svea7/viz_lidar_points
-    sensor_frame: svea7/sim_lidar
+    topic: /svea2/viz_lidar_points
+    sensor_frame: svea2/sim_lidar
     marking: true
     clearing: true
     min_obstacle_height: 0.05
     max_obstacle_height: 0.6
 
 global_frame: map
-robot_base_frame: svea7/base_link
+robot_base_frame: svea2/base_link
 update_frequency: 12.0
 publish_frequency: 12.0
 transform_tolerance: 0.5

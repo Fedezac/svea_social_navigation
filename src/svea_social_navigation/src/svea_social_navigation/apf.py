@@ -18,7 +18,7 @@ class ArtificialPotentialFieldHelper(object):
     """
     Class that given a local costmap computes the APF (only related to obstacles) for given robot 
     """
-    def __init__(self, mapped_obs, svea_name="svea7"):
+    def __init__(self, mapped_obs, svea_name="svea2"):
         """
         Init method for the ArtificialPotentialField class
         """

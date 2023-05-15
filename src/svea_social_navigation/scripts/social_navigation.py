@@ -117,7 +117,7 @@ class SocialNavigation(object):
         self.IS_MOCAP = load_param('~is_mocap', True)
         self.STATE = load_param('~state', [0, 0, 0, 0])
         self.GOAL = load_param('~goal', [0, 0])
-        self.SVEA_NAME = load_param('~svea_name', 'svea7')
+        self.SVEA_NAME = load_param('~svea_name', 'svea2')
         self.DYNAMIC_OBSTACLE_TOPIC = load_param('~dynamic_obstacle_topic', '/dynamic_obstacle')
         self.DEBUG = load_param('~debug', False)
         # Define publisher for MPC predicted path
