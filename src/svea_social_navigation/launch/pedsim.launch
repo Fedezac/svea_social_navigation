@@ -36,7 +36,7 @@
       <arg name="update_rate" value="$(arg update_rate)"/>
       <arg name="default_queue_size" value="10"/>
       <arg name="enable_groups" value="true"/>
-      <arg name="robot_base_frame_id" value="svea2"/>
+      <arg name="robot_base_frame_id" value="base_link"/>
       <arg name="frame_id" value="map"/>
     </include>
   </group>

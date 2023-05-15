@@ -3,7 +3,7 @@ import casadi
 from svea.models.generic_mpc import GenericModel
 
 class MPC(object):
-    ROBOT_RADIUS = 0.15
+    ROBOT_RADIUS = 0.2
     def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_static_obstacles, n_dynamic_obstacles, n_pedestrians, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
         Init method for MPC class

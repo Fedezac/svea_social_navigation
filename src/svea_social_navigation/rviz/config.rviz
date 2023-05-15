@@ -26,7 +26,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: Lidar Point Cloud
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -183,36 +183,16 @@ Visualization Manager:
       Marker Topic: /svea2/viz_lidar_rays
       Name: Lidar Rays
       Namespaces:
-        {}
+        "": true
       Queue Size: 1
       Value: true
     - Class: rviz/TF
-      Enabled: true
+      Enabled: false
       Filter (blacklist): ""
       Filter (whitelist): ""
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        base_link:
-          Value: true
-        imu:
-          Value: true
-        laser:
-          Value: true
-        map:
-          Value: true
-        mocap:
-          Value: true
-        odom:
-          Value: true
-        svea2:
-          Value: true
-        svea7:
-          Value: true
-        t265_camera_odom_frame:
-          Value: true
-        t265_camera_pose_frame:
-          Value: true
       Marker Alpha: 1
       Marker Scale: 1
       Name: TF
@@ -220,24 +200,9 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        mocap:
-          map:
-            {}
-          svea2:
-            {}
-        svea7:
-          base_link:
-            imu:
-              {}
-            laser:
-              {}
-            odom:
-              t265_camera_odom_frame:
-                {}
-            t265_camera_pose_frame:
-              {}
+        {}
       Update Interval: 0
-      Value: true
+      Value: false
     - Alpha: 1
       Axes Length: 1
       Axes Radius: 0.10000000149011612
@@ -345,7 +310,7 @@ Visualization Manager:
       Marker Topic: /dynamic_obstacles
       Name: Dynamic Obstacles
       Namespaces:
-        {}
+        dynamic_obstacle_simulator: true
       Queue Size: 100
       Value: true
     - Class: rviz/Group
@@ -481,7 +446,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 17.956573486328125
+      Distance: 17.44314956665039
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -489,17 +454,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 7.138428688049316
-        Y: 6.820451736450195
-        Z: -3.5926270484924316
+        X: 6.194544792175293
+        Y: 4.27442741394043
+        Z: -4.9567437171936035
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.9047967195510864
+      Pitch: 1.0447965860366821
       Target Frame: base_link
-      Yaw: 3.974958896636963
+      Yaw: 3.8549578189849854
     Saved: ~
 Window Geometry:
   Displays:

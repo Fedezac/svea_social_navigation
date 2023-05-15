@@ -355,7 +355,7 @@ class SocialNavigation(object):
             safe = self.localizer.is_ready
             # Wait for state from localization interface
             # TODO: does not work
-            self.state = self.wait_for_state_from_localizer()
+            self.state = self.localizer.state
             self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
         else:
             self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
@@ -378,8 +378,12 @@ class SocialNavigation(object):
         else:
             u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc)
 
-        # Get optimal velocity (by integrating once the acceleration command and summing it to the current speed) and steering controls
-        velocity = u[0, 0] * self.DELTA_TIME + self.x0[2]
+        # Get optimal velocity (by integrating once the acceleration command and summing it to the current speed) and
+        # steering controls
+        if self.IS_SIM:
+            velocity = u[0, 0] * self.DELTA_TIME + self.x0[2]
+        else:
+            velocity = u[0, 0] * 0.3 + self.x0[2]
         steering = u[1, 0]
         print(f'Optimal control (acceleration, steering): {u[0, 0], steering}')
         
