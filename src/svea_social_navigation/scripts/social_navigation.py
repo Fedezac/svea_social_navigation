@@ -95,6 +95,7 @@ def lists_to_pose_stampeds(x_list, y_list, yaw_list=None, t_list=None):
 
 class SocialNavigation(object):
     DELTA_TIME = 0.1
+    DELTA_TIME_REAL = 1.0 / 3.0
     GOAL_THRESH = 0.2
     STRAIGHT_SPEED = 0.3
     TURN_SPEED = 0.2
@@ -181,28 +182,52 @@ class SocialNavigation(object):
         # Create APF object
         self.apf = ArtificialPotentialFieldHelper(svea_name=self.SVEA_NAME, mapped_obs=self.pi.get_mapped_obs_pos())
         self.apf.wait_for_local_costmap()
-        # Create vehicle model object
-        self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
-        # Define variable bounds
-        # TODO: maybe avoid going backwards (or penalized it very much)
-        x_b = np.array([np.inf, np.inf, 0.5, np.inf])
-        u_b = np.array([0.5, np.deg2rad(40)])
-        # Create MPC controller object
-        self.controller = MPC(
-            self.model,
-            N=self.WINDOW_LEN,
-            Q=[6, 6, .1, .1],
-            R=[1, .1],
-            S=[20, 35, 15],
-            x_lb=-x_b,
-            x_ub=x_b,
-            u_lb=-u_b,
-            u_ub=u_b,
-            n_static_obstacles=self.MAX_N_STATIC_OBSTACLES,
-            n_dynamic_obstacles=self.MAX_N_DYNAMIC_OBSTACLES,
-            n_pedestrians=self.MAX_N_PEDESTRIANS,
-            verbose=False
-        )
+        if self.IS_SIM:
+            # Create vehicle model object
+            self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
+            # Define variable bounds
+            # TODO: maybe avoid going backwards (or penalized it very much)
+            x_b = np.array([np.inf, np.inf, 0.5, np.inf])
+            u_b = np.array([0.5, np.deg2rad(40)])
+            # Create MPC controller object
+            self.controller = MPC(
+                self.model,
+                N=self.WINDOW_LEN,
+                Q=[6, 6, .1, .1],
+                R=[1, .1],
+                S=[20, 35, 15],
+                x_lb=-x_b,
+                x_ub=x_b,
+                u_lb=-u_b,
+                u_ub=u_b,
+                n_static_obstacles=self.MAX_N_STATIC_OBSTACLES,
+                n_dynamic_obstacles=self.MAX_N_DYNAMIC_OBSTACLES,
+                n_pedestrians=self.MAX_N_PEDESTRIANS,
+                verbose=False
+            )
+        else:
+            # Create vehicle model object
+            self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME_REAL)
+            # Define variable bounds
+            # TODO: maybe avoid going backwards (or penalized it very much)
+            x_b = np.array([np.inf, np.inf, 1.2, np.inf])
+            u_b = np.array([0.5, np.deg2rad(40)])
+            # Create MPC controller object
+            self.controller = MPC(
+                self.model,
+                N=self.WINDOW_LEN,
+                Q=[6, 6, .1, .1],
+                R=[1, .1],
+                S=[20, 35, 15],
+                x_lb=-x_b,
+                x_ub=x_b,
+                u_lb=-u_b,
+                u_ub=u_b,
+                n_static_obstacles=self.MAX_N_STATIC_OBSTACLES,
+                n_dynamic_obstacles=self.MAX_N_DYNAMIC_OBSTACLES,
+                n_pedestrians=self.MAX_N_PEDESTRIANS,
+                verbose=False
+            )
 
     def wait_for_state_from_localizer(self):
         """Wait for a new state to arrive, or until a maximum time
@@ -343,7 +368,7 @@ class SocialNavigation(object):
         # Spin until alive
         while self.keep_alive():
             self.spin()
-            #rospy.sleep(0.1)
+            rospy.sleep(0.1)
         print('--- GOAL REACHED ---')
 
     def spin(self):
@@ -354,7 +379,6 @@ class SocialNavigation(object):
         if not self.IS_SIM:
             safe = self.localizer.is_ready
             # Wait for state from localization interface
-            # TODO: does not work
             self.state = self.localizer.state
             self.x0 = [self.state.x, self.state.y, self.state.v, self.state.yaw]
         else:
@@ -383,7 +407,7 @@ class SocialNavigation(object):
         if self.IS_SIM:
             velocity = u[0, 0] * self.DELTA_TIME + self.x0[2]
         else:
-            velocity = u[0, 0] * 0.3 + self.x0[2]
+            velocity = u[0, 0] * self.DELTA_TIME_REAL + self.x0[2]
         steering = u[1, 0]
         print(f'Optimal control (acceleration, steering): {u[0, 0], steering}')
         

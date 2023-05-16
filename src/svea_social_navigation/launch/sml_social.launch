@@ -73,10 +73,10 @@
         <param name="is_sim" value="$(arg is_sim)"/>
         <param name="remote_rviz" value="$(arg remote_rviz)" />
         <rosparam>
-            state: [7.6, 2.9, 1.57, 0] # initial state (x, y, yaw)
-            goal: [7.6, 6.8]
+            state: [3.5, 4.1, 1.57, 0] # initial state (x, y, yaw)
+            goal: [3.5, 7.9]
             static_unmapped_obstacles: []
-            dynamic_obstacles: [[7.3, 5.7, 0.3, 0, 7.3, 8, 3.5, 5.7]] # (x, y, v, theta, x_lb, x_ub, y_lb, y_ub)
+            dynamic_obstacles: [[3.7, 5.2, 0.3, 1.57, 3, 4, 5.2, 5.9]] # (x, y, v, theta, x_lb, x_ub, y_lb, y_ub)
         </rosparam>
     </node>
 
@@ -87,14 +87,6 @@
         <node name="static_unmapped_obstacle_simulator" pkg="svea_social_navigation" type="static_unmapped_obstacle_simulator.py" />
         <node name="costmap_node" pkg="costmap_2d" type="costmap_2d_node">
             <rosparam file="$(find svea_social_navigation)/config/costmap_params_sim.yaml" command="load" ns="costmap" />
-        </node>
-    </group>
-    <group unless="$(arg is_sim)">
-        <node name="tf_lidar_to_base_link" pkg="tf" type="static_transform_publisher" args="0 0 -0.175 0 0 0 $(arg svea_name) base_link 100" />
-        <node name="tf_odom_to_base_link" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 base_link odom 100" />
-        <node name="static_unmapped_obstacle_simulator" pkg="svea_social_navigation" type="static_unmapped_obstacle_simulator.py" />
-        <node name="costmap_node" pkg="costmap_2d" type="costmap_2d_node">
-            <rosparam file="$(find svea_social_navigation)/config/costmap_params_svea.yaml" command="load" ns="costmap" />
         </node>
     </group>
     <!--

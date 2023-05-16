@@ -61,7 +61,7 @@ class DynamicObstacleSimulator(StaticUnmappedObstacleSimulator):
                 self.obs[i, 1] += delta_y
                 # Check condition on x and y bounds
                 if (self.obs[i, 0] < self.obs[i, 4] or self.obs[i, 0] > self.obs[i, 5]) or (self.obs[i, 1] < self.obs[i, 6] or self.obs[i, 1] > self.obs[i, 7]):
-                    self.obs[i, 2] = -self.obs[i, 2]
+                    self.obs[i, 3] = -self.obs[i, 3]
                 # Release mutex
                 self.mutex.release()
                 # Create Marker object with new
