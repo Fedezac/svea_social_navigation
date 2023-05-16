@@ -36,8 +36,8 @@
         <rosparam>
             state: [3.5, 4.1, 1.57, 0] # initial state (x, y, yaw)
             goal: [3.5, 7.9]
-            static_unmapped_obstacles: []
-            dynamic_obstacles: [[3.7, 5.2, 0.3, 1.57, 3, 4, 5.2, 5.9]] # (x, y, v, theta, x_lb, x_ub, y_lb, y_ub)
+            static_unmapped_obstacles: [[3.4, 5]]
+            dynamic_obstacles: [] # (x, y, v, theta, x_lb, x_ub, y_lb, y_ub)
         </rosparam>
     </node>
 

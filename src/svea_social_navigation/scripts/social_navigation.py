@@ -95,7 +95,7 @@ def lists_to_pose_stampeds(x_list, y_list, yaw_list=None, t_list=None):
 
 class SocialNavigation(object):
     DELTA_TIME = 0.1
-    DELTA_TIME_REAL = 1.0 / 3.0
+    DELTA_TIME_REAL = 0.3
     GOAL_THRESH = 0.2
     STRAIGHT_SPEED = 0.3
     TURN_SPEED = 0.2
@@ -207,18 +207,18 @@ class SocialNavigation(object):
             )
         else:
             # Create vehicle model object
-            self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME_REAL)
+            self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
             # Define variable bounds
             # TODO: maybe avoid going backwards (or penalized it very much)
-            x_b = np.array([np.inf, np.inf, 1.2, np.inf])
+            x_b = np.array([np.inf, np.inf, 0.7, np.inf])
             u_b = np.array([0.5, np.deg2rad(40)])
             # Create MPC controller object
             self.controller = MPC(
                 self.model,
                 N=self.WINDOW_LEN,
-                Q=[6, 6, .1, .1],
+                Q=[6, 6, 12, .1],
                 R=[1, .1],
-                S=[20, 35, 15],
+                S=[50, 40, 15],
                 x_lb=-x_b,
                 x_ub=x_b,
                 u_lb=-u_b,
@@ -356,7 +356,6 @@ class SocialNavigation(object):
         :rtype: boolean
         """
         distance = np.linalg.norm(np.array(self.GOAL) - np.array([self.x0[0], self.x0[1]]))
-        #return not (rospy.is_shutdown())
         return not (rospy.is_shutdown() or distance < self.GOAL_THRESH)
 
     def run(self):
@@ -409,7 +408,7 @@ class SocialNavigation(object):
         else:
             velocity = u[0, 0] * self.DELTA_TIME_REAL + self.x0[2]
         steering = u[1, 0]
-        print(f'Optimal control (acceleration, steering): {u[0, 0], steering}')
+        print(f'Optimal control (acceleration, velocity, steering): {u[0, 0], velocity, steering}')
         
         # Send control to actuator interface
         if not self.IS_SIM and safe:
