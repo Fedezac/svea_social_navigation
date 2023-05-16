@@ -228,6 +228,7 @@ class SocialNavigation(object):
                 n_pedestrians=self.MAX_N_PEDESTRIANS,
                 verbose=False
             )
+            # For testing with Mich Q=[12, 12, 40, .1]
 
     def wait_for_state_from_localizer(self):
         """Wait for a new state to arrive, or until a maximum time
