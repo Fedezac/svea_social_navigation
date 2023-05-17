@@ -194,9 +194,9 @@ class SocialNavigation(object):
             self.controller = MPC(
                 self.model,
                 N=self.WINDOW_LEN,
-                Q=[6, 6, .1, .1],
-                R=[1, .1],
-                S=[20, 35, 15],
+                Q=[20, 20, 50, .1],
+                R=[1, .5],
+                S=[120, 150, 70],
                 x_lb=-x_b,
                 x_ub=x_b,
                 u_lb=-u_b,
@@ -230,7 +230,6 @@ class SocialNavigation(object):
                 n_pedestrians=self.MAX_N_PEDESTRIANS,
                 verbose=False
             )
-            # For testing with Mich Q=[12, 12, 40, .1]
 
     def wait_for_state_from_localizer(self):
         """Wait for a new state to arrive, or until a maximum time
