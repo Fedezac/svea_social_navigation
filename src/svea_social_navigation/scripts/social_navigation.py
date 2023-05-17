@@ -99,7 +99,6 @@ class SocialNavigation(object):
     GOAL_THRESH = 0.2
     STRAIGHT_SPEED = 0.3
     TURN_SPEED = 0.2
-    WINDOW_LEN = 7
     MAX_N_STATIC_OBSTACLES = 10
     MAX_N_DYNAMIC_OBSTACLES = 10
     MAX_N_PEDESTRIANS = 10
@@ -184,6 +183,7 @@ class SocialNavigation(object):
         self.apf = ArtificialPotentialFieldHelper(svea_name=self.SVEA_NAME, mapped_obs=self.pi.get_mapped_obs_pos())
         self.apf.wait_for_local_costmap()
         if self.IS_SIM:
+            self.WINDOW_LEN = 10
             # Create vehicle model object
             self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
             # Define variable bounds
@@ -207,6 +207,7 @@ class SocialNavigation(object):
                 verbose=False
             )
         else:
+            self.WINDOW_LEN = 7
             # Create vehicle model object
             self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
             # Define variable bounds
@@ -219,7 +220,7 @@ class SocialNavigation(object):
                 N=self.WINDOW_LEN,
                 Q=[20, 20, 50, .1],
                 R=[1, .5],
-                S=[50, 60, 15],
+                S=[120, 150, 70],
                 x_lb=-x_b,
                 x_ub=x_b,
                 u_lb=-u_b,

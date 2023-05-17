@@ -285,7 +285,7 @@ class MPC(object):
         #for r_force in self.F_r_sfm:
         #    print(f'MPC Repulsive sfmc: {self.opti.debug.value(r_force)}')
         print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
-        print(f'Static obs: {self.opti.debug.value(self.static_unmapped_obs_position)}')
+        #print(f'Static obs: {self.opti.debug.value(self.static_unmapped_obs_position)}')
         # Get first control generated (not predicted ones)
         u_optimal = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         # Get new predicted position

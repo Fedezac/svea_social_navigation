@@ -35,10 +35,10 @@
         <param name="remote_rviz" value="$(arg remote_rviz)" />
         <rosparam>
             state: [3.5, 4.1, 1.57, 0] # initial state (x, y, yaw)
-            goal: [3.5, 7.9]
+            goal: [7.7, 7.3]
             static_unmapped_obstacles: []
-            dynamic_obstacles: [[3.4, 4.4, 0.3, 1.57, 3, 3.5, 4.4, 5]] # (x, y, v, theta, x_lb, x_ub, y_lb, y_ub)
-            is_pedsim: True
+            dynamic_obstacles: []
+            is_pedsim: False
         </rosparam>
     </node>
 
@@ -63,7 +63,7 @@
         state: [7.6, 2.9, 1.57, 0] # initial state (x, y, yaw)
             goal: [7.6, 6.8]
 
-        static_unmapped_obstacles: [[7, 5.6], [7.2, 5]]
-        dynamic_obstacles: [[5.3, 3.7, 0.3, 0, 5, 6, 3, 5], [5.3, 4.7, 0.3, 0, 5, 6, 3, 5], [8, 1.6, 0.3, 1.57, 7, 9, 1, 2]]
+        static_unmapped_obstacles: [[3.3, 5.5]]
+            dynamic_obstacles: [[3, 6, 0.3, 0, 3, 4, 6, 7]] # (x, y, v, theta, x_lb, x_ub, y_lb, y_ub)
     -->
 </launch>
