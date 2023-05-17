@@ -39,6 +39,7 @@
             static_unmapped_obstacles: [[5.2, 5.6], [5.9, 6.7]]
             dynamic_obstacles: []
             is_pedsim: False
+            measure: True
         </rosparam>
     </node>
 

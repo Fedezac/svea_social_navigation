@@ -19,6 +19,7 @@ from svea_social_navigation.apf import ArtificialPotentialFieldHelper
 from svea_social_navigation.static_unmapped_obstacle_simulator import StaticUnmappedObstacleSimulator
 from svea_social_navigation.dynamic_obstacle_simulator import DynamicObstacleSimulator
 from svea_social_navigation.sfm_helper import SFMHelper
+from svea_social_navigation.measurement_node import SocialMeasurement
 
 # ROS imports
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped
@@ -122,6 +123,7 @@ class SocialNavigation(object):
         self.DYNAMIC_OBSTACLE_TOPIC = load_param('~dynamic_obstacle_topic', '/dynamic_obstacle')
         self.DEBUG = load_param('~debug', False)
         self.IS_PEDSIM = load_param('~is_pedsim', False)
+        self.MEASURE = load_param('~measure', True)
         # Define publisher for MPC predicted path
         self.pred_path_pub = rospy.Publisher("pred_path", Path, queue_size=1, latch=True)
 
@@ -155,6 +157,9 @@ class SocialNavigation(object):
 
         # Initialize social force model helper
         self.sfm_helper = SFMHelper(is_pedsim=self.IS_PEDSIM)
+
+        # Initialize measurement class
+        self.measurements = SocialMeasurement()
 
         if self.IS_SIM:
             # Simulator needs a model to simulate
@@ -316,12 +321,20 @@ class SocialNavigation(object):
         self.sfm_helper.mutex.acquire()
         # If pedsim is being used
         if self.IS_PEDSIM:
+            if self.MEASURE: id = 0
             # For every pedestrian, insert it into the array (necessary since in sfm pedestrians are stored in a dict)
             for p in self.sfm_helper.pedestrian_states:
                 pedestrians.append(self.sfm_helper.pedestrian_states[p])
+                # If measuring mode is active, add pedestrian pose to file
+                if self.MEASURE:
+                    self.measurements.add_pedestrian_pose(id, np.array(pedestrians)[-1, :])
+                    id += 1
         else:
             # If mocap is being used
             pedestrians.append([self.sfm_helper.pedestrian_localizer.state.x, self.sfm_helper.pedestrian_localizer.state.y, self.sfm_helper.pedestrian_localizer.state.v, self.sfm_helper.pedestrian_localizer.state.yaw])
+            # If measuring mode is active, add pedestrian pose to file
+            if self.MEASURE:
+                self.measurements.add_pedestrian_pose(0, np.array(pedestrians)[-1, :])
         # Release mutex
         self.sfm_helper.mutex.release()
         # Keep only pedestrians that are in the local costmap
@@ -351,6 +364,10 @@ class SocialNavigation(object):
         while self.keep_alive():
             self.spin()
             rospy.sleep(0.1)
+        # If measuring mode is active, then close all files, when experiment is done
+        if self.MEASURE:
+            self.measurements.read_robot_poses()
+            self.measurements.close_files()
         print('--- GOAL REACHED ---')
 
     def spin(self):
@@ -366,6 +383,9 @@ class SocialNavigation(object):
         else:
             self.x0 = [self.sim_model.state.x, self.sim_model.state.y, self.sim_model.state.v, self.sim_model.state.yaw]
         print(f'State: {self.x0}')
+        # If measuring mode is active, add robot pose to file
+        if self.MEASURE:
+            self.measurements.add_robot_pose(self.x0)
 
         # Get local static unmapped obstacles, local dynamic obstacles, local pedestrians
         local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc = self.get_local_agents()

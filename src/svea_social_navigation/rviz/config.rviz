@@ -26,7 +26,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: Raw LiDAR
+    SyncSource: Lidar Point Cloud
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -183,7 +183,7 @@ Visualization Manager:
       Marker Topic: /svea2/viz_lidar_rays
       Name: Lidar Rays
       Namespaces:
-        {}
+        "": true
       Queue Size: 1
       Value: true
     - Class: rviz/TF
@@ -310,7 +310,7 @@ Visualization Manager:
       Marker Topic: /dynamic_obstacles
       Name: Dynamic Obstacles
       Namespaces:
-        dynamic_obstacle_simulator: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Group
@@ -328,7 +328,9 @@ Visualization Manager:
           Marker Topic: /pedsim_visualizer/waypoints
           Name: Pedestrian Waypoints
           Namespaces:
-            {}
+            waypoint_id_1: true
+            waypoint_id_2: true
+            waypoint_id_3: true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -460,7 +462,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 17.016889572143555
+      Distance: 21.345985412597656
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -468,9 +470,9 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 1.667253851890564
-        Y: 1.7352471351623535
-        Z: -4.952723503112793
+        X: 4.3271918296813965
+        Y: 4.977677345275879
+        Z: -3.491589069366455
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
