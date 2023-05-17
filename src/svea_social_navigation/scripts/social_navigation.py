@@ -99,7 +99,7 @@ class SocialNavigation(object):
     GOAL_THRESH = 0.2
     STRAIGHT_SPEED = 0.3
     TURN_SPEED = 0.2
-    WINDOW_LEN = 10
+    WINDOW_LEN = 7
     MAX_N_STATIC_OBSTACLES = 10
     MAX_N_DYNAMIC_OBSTACLES = 10
     MAX_N_PEDESTRIANS = 10
@@ -121,6 +121,7 @@ class SocialNavigation(object):
         self.SVEA_NAME = load_param('~svea_name', 'svea2')
         self.DYNAMIC_OBSTACLE_TOPIC = load_param('~dynamic_obstacle_topic', '/dynamic_obstacle')
         self.DEBUG = load_param('~debug', False)
+        self.IS_PEDSIM = load_param('~is_pedsim', False)
         # Define publisher for MPC predicted path
         self.pred_path_pub = rospy.Publisher("pred_path", Path, queue_size=1, latch=True)
 
@@ -153,7 +154,7 @@ class SocialNavigation(object):
         self.static_unmapped_obs_simulator.publish_obstacle_msg()
 
         # Initialize social force model helper
-        self.sfm_helper = SFMHelper()
+        self.sfm_helper = SFMHelper(is_pedsim=self.IS_PEDSIM)
 
         if self.IS_SIM:
             # Simulator needs a model to simulate
@@ -216,9 +217,9 @@ class SocialNavigation(object):
             self.controller = MPC(
                 self.model,
                 N=self.WINDOW_LEN,
-                Q=[6, 6, 12, .1],
-                R=[1, .1],
-                S=[50, 40, 15],
+                Q=[20, 20, 50, .1],
+                R=[1, .5],
+                S=[50, 60, 15],
                 x_lb=-x_b,
                 x_ub=x_b,
                 u_lb=-u_b,
@@ -256,15 +257,17 @@ class SocialNavigation(object):
     def plan(self):
         # Compute safe global path
         self.pi.compute_path()
+        # For mich's integration
+        #self.pi.get_path_from_topic()
         # Init visualize path interface
         self.pi.initialize_path_interface()
         # Get path 
-        #b_spline_path = np.array(self.pi.get_points_path(interpolate=True))
+        b_spline_path = np.array(self.pi.get_points_path(interpolate=True))
         # Get smoothed path and extract social waypoints (other possible nice combination of parameters for path
         # smoothing is interpolate=False and degree=4)
-        b_spline_path = np.array(self.pi.get_social_waypoints(interpolate=True))
+        #b_spline_path = np.array(self.pi.get_social_waypoints(interpolate=True))
         # Create array for MPC reference
-        self.path = np.zeros(np.shape(b_spline_path))
+        self.path = np.zeros((np.shape(b_spline_path)[0], 4))
         self.path[:, 0] = b_spline_path[:, 0]
         self.path[:, 1] = b_spline_path[:, 1]
         self.path[:, 2] = [self.STRAIGHT_SPEED if abs(curv) < 1e-2 else self.TURN_SPEED for curv in b_spline_path[:, 3]]
@@ -331,15 +334,19 @@ class SocialNavigation(object):
             # Release mutex as soon as possible
             self.dynamic_obs_simulator.mutex.release()
         
-
         # Initialize empty pedestrian array
         pedestrians = []
         local_pedestrians_mpc = np.full((4, self.MAX_N_PEDESTRIANS), np.array([[-100000.0, -100000.0, 0, 0]]).T)
         # Acquire mutex
         self.sfm_helper.mutex.acquire()
-        # For every pedestrian, insert it into the array (necessary since in sfm pedestrians are stored in a dict)
-        for p in self.sfm_helper.pedestrian_states:
-            pedestrians.append(self.sfm_helper.pedestrian_states[p])
+        # If pedsim is being used
+        if self.IS_PEDSIM:
+            # For every pedestrian, insert it into the array (necessary since in sfm pedestrians are stored in a dict)
+            for p in self.sfm_helper.pedestrian_states:
+                pedestrians.append(self.sfm_helper.pedestrian_states[p])
+        else:
+            # If mocap is being used
+            pedestrians.append([self.sfm_helper.pedestrian_localizer.state.x, self.sfm_helper.pedestrian_localizer.state.y, self.sfm_helper.pedestrian_localizer.state.v, self.sfm_helper.pedestrian_localizer.state.yaw])
         # Release mutex
         self.sfm_helper.mutex.release()
         # Keep only pedestrians that are in the local costmap
@@ -356,7 +363,7 @@ class SocialNavigation(object):
         :return: True if the node is still running, False otherwise
         :rtype: boolean
         """
-        distance = np.linalg.norm(np.array(self.GOAL) - np.array([self.x0[0], self.x0[1]]))
+        distance = np.linalg.norm(np.array(self.path[-1, 0:2]) - np.array([self.x0[0], self.x0[1]]))
         return not (rospy.is_shutdown() or distance < self.GOAL_THRESH)
 
     def run(self):

@@ -7,24 +7,31 @@ from threading import Lock
 from pedsim_msgs.msg import AgentStates
 from tf.transformations import euler_from_quaternion
 
+# Import mocap interface for detecting pedestrian position
+from svea_mocap.mocap import MotionCaptureInterface
+
 def load_param(name, value=None):
     if value is None:
         assert rospy.has_param(name), f'Missing parameter "{name}"'
     return rospy.get_param(name, value)
 
 class SFMHelper(object):
-    def __init__(self):
+    def __init__(self, is_pedsim=True):
         """
         Init method for the SFMHelper class
         """
         # Get pedestrian topic
         self.ped_pos_topic = load_param('~pedestrian_position_topic', '/pedsim_simulator/simulated_agents')
-        # Create subscriber
-        self.ped_sub = rospy.Subscriber(self.ped_pos_topic, AgentStates, self.pedestrian_cb)
+        self.IS_PEDSIM = is_pedsim
+        if self.IS_PEDSIM: 
+            # Create subscriber
+            self.ped_sub = rospy.Subscriber(self.ped_pos_topic, AgentStates, self.pedestrian_cb)
+            # Empty array of pedestrain positions
+            self.pedestrian_states = {}
+        else:
+            self.pedestrian_localizer = MotionCaptureInterface('pedestrian').start()
         # Mutex for mutual exclusion over the access on pedestrian_states
         self.mutex = Lock()
-        # Empty array of pedestrain positions
-        self.pedestrian_states = {}
 
     def pedestrian_cb(self, msg):
         """

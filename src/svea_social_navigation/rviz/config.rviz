@@ -416,6 +416,22 @@ Visualization Manager:
             Value: 0
       Enabled: true
       Name: Tracking-Visuals
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz/Pose
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: Pedestrian Mocap Pose
+      Queue Size: 10
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /qualisys/pedestrian/pose
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 162; 162; 162
@@ -444,7 +460,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 17.90799903869629
+      Distance: 15.19365119934082
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -452,17 +468,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 1.069075107574463
-        Y: 0.856741726398468
-        Z: -5.4723005294799805
+        X: 1.0431485176086426
+        Y: 1.7626341581344604
+        Z: -5.071112155914307
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.1497966051101685
+      Pitch: 1.2347965240478516
       Target Frame: base_link
-      Yaw: 4.2199602127075195
+      Yaw: 4.094962120056152
     Saved: ~
 Window Geometry:
   Displays:

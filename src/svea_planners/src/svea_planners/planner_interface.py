@@ -6,6 +6,7 @@ from svea_planners.gridmap_interface import GridMapInterface
 from svea_planners.path_interface import PathInterface
 from svea_planners.path_smoother import PathSmoother
 from svea_planners.astar import AStarPlanner, AStarWorld
+from nav_msgs.msg import Path
 
 def assert_points(pts):
     assert isinstance(pts[0], (int, float)), 'points contain a coordinate pair wherein one value is not a number'
@@ -51,6 +52,14 @@ class PlannerInterface(object):
 
     def compute_path(self):
         self._path = self._planner.create_path()
+
+    def get_path_from_topic(self):
+        msg = rospy.wait_for_message('/smooth_path', Path, timeout=None)
+        path = []
+        for p in msg.poses:
+            path.append([p.pose.position.x, p.pose.position.y])
+        self._path = path
+        return path
 
     def initialize_path_interface(self):
         if self._path is not None:
