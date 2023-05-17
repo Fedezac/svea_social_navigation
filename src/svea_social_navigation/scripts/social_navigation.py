@@ -94,6 +94,7 @@ def lists_to_pose_stampeds(x_list, y_list, yaw_list=None, t_list=None):
     return poses
 
 class SocialNavigation(object):
+    WINDOW_LEN = 10
     DELTA_TIME = 0.1
     DELTA_TIME_REAL = 0.3
     GOAL_THRESH = 0.2
@@ -182,11 +183,6 @@ class SocialNavigation(object):
         # Create APF object
         self.apf = ArtificialPotentialFieldHelper(svea_name=self.SVEA_NAME, mapped_obs=self.pi.get_mapped_obs_pos())
         self.apf.wait_for_local_costmap()
-        if self.IS_SIM:
-            self.WINDOW_LEN = 10
-            
-        else:
-            self.WINDOW_LEN = 7
         # Create vehicle model object
         self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
         # Define variable bounds
