@@ -184,52 +184,31 @@ class SocialNavigation(object):
         self.apf.wait_for_local_costmap()
         if self.IS_SIM:
             self.WINDOW_LEN = 10
-            # Create vehicle model object
-            self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
-            # Define variable bounds
-            # TODO: maybe avoid going backwards (or penalized it very much)
-            x_b = np.array([np.inf, np.inf, 0.5, np.inf])
-            u_b = np.array([0.5, np.deg2rad(40)])
-            # Create MPC controller object
-            self.controller = MPC(
-                self.model,
-                N=self.WINDOW_LEN,
-                Q=[20, 20, 50, .1],
-                R=[1, .5],
-                S=[120, 150, 70],
-                x_lb=-x_b,
-                x_ub=x_b,
-                u_lb=-u_b,
-                u_ub=u_b,
-                n_static_obstacles=self.MAX_N_STATIC_OBSTACLES,
-                n_dynamic_obstacles=self.MAX_N_DYNAMIC_OBSTACLES,
-                n_pedestrians=self.MAX_N_PEDESTRIANS,
-                verbose=False
-            )
+            
         else:
             self.WINDOW_LEN = 7
-            # Create vehicle model object
-            self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
-            # Define variable bounds
-            # TODO: maybe avoid going backwards (or penalized it very much)
-            x_b = np.array([np.inf, np.inf, 0.7, np.inf])
-            u_b = np.array([0.5, np.deg2rad(40)])
-            # Create MPC controller object
-            self.controller = MPC(
-                self.model,
-                N=self.WINDOW_LEN,
-                Q=[20, 20, 50, .1],
-                R=[1, .5],
-                S=[120, 150, 70],
-                x_lb=-x_b,
-                x_ub=x_b,
-                u_lb=-u_b,
-                u_ub=u_b,
-                n_static_obstacles=self.MAX_N_STATIC_OBSTACLES,
-                n_dynamic_obstacles=self.MAX_N_DYNAMIC_OBSTACLES,
-                n_pedestrians=self.MAX_N_PEDESTRIANS,
-                verbose=False
-            )
+        # Create vehicle model object
+        self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
+        # Define variable bounds
+        # TODO: maybe avoid going backwards (or penalized it very much)
+        x_b = np.array([np.inf, np.inf, 0.7, np.inf])
+        u_b = np.array([0.5, np.deg2rad(40)])
+        # Create MPC controller object
+        self.controller = MPC(
+            self.model,
+            N=self.WINDOW_LEN,
+            Q=[20, 20, 50, .1],
+            R=[1, .5],
+            S=[120, 150, 70],
+            x_lb=-x_b,
+            x_ub=x_b,
+            u_lb=-u_b,
+            u_ub=u_b,
+            n_static_obstacles=self.MAX_N_STATIC_OBSTACLES,
+            n_dynamic_obstacles=self.MAX_N_DYNAMIC_OBSTACLES,
+            n_pedestrians=self.MAX_N_PEDESTRIANS,
+            verbose=False
+        )
 
     def wait_for_state_from_localizer(self):
         """Wait for a new state to arrive, or until a maximum time
