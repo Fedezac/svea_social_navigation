@@ -91,7 +91,7 @@ class SocialMeasurement(object):
         else:
             a = 10.41 * pose[2] - 10.10
         b = 0.14 * a
-        arc1 = [pose[0], pose[1], np.abs(b * np.cos(pose[3])), np.abs(b * np.sin(pose[3])), np.pi]
+        arc1 = [pose[0], pose[1], np.abs(b * np.cos(pose[3])), np.abs(b * np.sin(pose[3])), pose[3], np.pi]
 
         # Arc 2
         e = np.sqrt(a ** 2 + b ** 2)
@@ -100,14 +100,14 @@ class SocialMeasurement(object):
         og = a - r
         g = pose[0:2] + og
         alpha = np.arctan2(b, a) 
-        arc2 = [g[0], g[1], r * np.cos(pose[3]), r * np.sin(pose[3]), 2 * alpha]
+        arc2 = [g[0], g[1], np.abs(r * np.cos(pose[3])), np.abs(r * np.sin(pose[3])), pose[3], 2 * alpha]
 
         # Arc 3
         R = (e * (e + d)) / (2 * b)
         of = R - b
         f = pose[0:2] + of
         beta = np.arctan2(a, b)
-        arc3 = [f[0], f[1], R * np.cos(pose[3]), R * np.sin(pose[3]), 2 * beta]
+        arc3 = [f[0], f[1], np.abs(R * np.cos(pose[3])), np.abs(R * np.sin(pose[3])), pose[3], 2 * beta]
 
         return arc1, arc2, arc3
 
@@ -118,11 +118,16 @@ if __name__ == '__main__':
     m.read_robot_poses()
     m.read_pedestrian_poses()
     for key in m.pedestrian_states:
+        print(key)
         for pose in m.pedestrian_states[key]:
             arc1, arc2, arc3 = m.get_personal_space(pose)
-            print(arc1)
+            print(arc2)
             plt.clf()
-            plt_arc1 = mpatches.Arc((arc1[0], arc1[1]), arc1[2], arc1[3], angle=arc1[4], color="orange")
+            plt_arc1 = mpatches.Arc((arc1[0], arc1[1]), arc1[2], arc1[3], angle=arc1[4], theta2=arc1[5]+arc1[4], color="orange")
+            plt_arc2 = mpatches.Arc((arc2[0], arc2[1]), arc2[2], arc2[3], angle=arc2[4], theta2=arc2[5]+arc2[4], color="red")
+            #plt_arc1 = mpatches.Arc((arc1[0], arc1[1]), arc1[2], arc1[3], angle=arc1[4], theta2=arc1[5]+arc1[4], color="orange")
             plt.gcf().gca().add_artist(plt_arc1)
-            plt.show()  
+            plt.gcf().gca().add_artist(plt_arc2)
+            plt.plot(pose[0], pose[1], 'bo')
+            plt.draw()  
             plt.pause(0.01)
