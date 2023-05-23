@@ -4,6 +4,8 @@ import numpy as np
 import re
 from matplotlib import pyplot as plt
 import matplotlib.patches as mpatches
+import threading
+import concurrent.futures
 
 class SocialMeasurement(object):
     SVEA_FILE = '/home/federico/universita/thesis_ws/ws/src/svea_social_navigation/data/svea_states.txt'
@@ -19,8 +21,8 @@ class SocialMeasurement(object):
         """
         # Clear both files
         # TODO: uncomment when running experiments (to erase debug file)
-        #open(self.SVEA_FILE, 'w').close()
-        #open(self.PEDESTRIAN_FILE, 'w').close()
+        open(self.SVEA_FILE, 'w').close()
+        open(self.PEDESTRIAN_FILE, 'w').close()
         # Open files in append plus read mode
         self.svea_file = open(self.SVEA_FILE, 'a+')
         self.pedestrian_file = open(self.PEDESTRIAN_FILE, 'a+')
@@ -94,55 +96,68 @@ class SocialMeasurement(object):
     def plot_psit(self):
         intimate_psit = 0
         intimate_invasion = False
+        intimate_plot = []
+
         personal_psit = 0
         personal_invasion = False
+        personal_plot = []
+
         social_psit = 0
         social_invasion = False
+        social_plot = []
+
         fig_psit, ax_psit = plt.subplots(num='PSIT (Personal Space Invasion Time)')
-        for key in m.pedestrian_states:
-            for i, pose in enumerate(m.pedestrian_states[key]):
-                if (m.svea_states[i][0] - pose[0]) ** 2 + (m.svea_states[i][1] - pose[1]) ** 2 < m.INTIMATE_RADIUS ** 2:
+        fig_psit.set_dpi(150)
+        for key in self.pedestrian_states:
+            for i, pose in enumerate(self.pedestrian_states[key]):
+                if (self.svea_states[i][0] - pose[0]) ** 2 + (self.svea_states[i][1] - pose[1]) ** 2 <= self.INTIMATE_RADIUS ** 2:
                     if intimate_invasion:
-                        intimate_psit += m.svea_states[i][4] - m.svea_states[i - 1][4]
+                        intimate_psit += self.svea_states[i][4] - self.svea_states[i - 1][4]
                     intimate_invasion = True
                 else:
                     intimate_invasion = False
-                if (m.svea_states[i][0] - pose[0]) ** 2 + (m.svea_states[i][1] - pose[1]) ** 2 < m.PERSONAL_RADIUS ** 2:
+                if (self.svea_states[i][0] - pose[0]) ** 2 + (self.svea_states[i][1] - pose[1]) ** 2 <= self.PERSONAL_RADIUS ** 2:
                     if personal_invasion:
-                        personal_psit += m.svea_states[i][4] - m.svea_states[i - 1][4]
+                        personal_psit += self.svea_states[i][4] - self.svea_states[i - 1][4]                      
                     personal_invasion = True
                 else:
                     personal_invasion = False
-                if (m.svea_states[i][0] - pose[0]) ** 2 + (m.svea_states[i][1] - pose[1]) ** 2 < m.SOCIAL_RADIUS ** 2:
+                if (self.svea_states[i][0] - pose[0]) ** 2 + (self.svea_states[i][1] - pose[1]) ** 2 <= self.SOCIAL_RADIUS ** 2:
                     if social_invasion:
-                        social_psit += m.svea_states[i][4] - m.svea_states[i - 1][4]
+                        social_psit += self.svea_states[i][4] - self.svea_states[i - 1][4]
                     social_invasion = True
                 else:
                     social_invasion = False
-                ax_psit.plot(m.svea_states[i][4] - m.svea_states[0][4], intimate_psit, 'ro-', markersize=1, linewidth=1)
-                ax_psit.plot(m.svea_states[i][4] - m.svea_states[0][4], personal_psit, 'bo-', markersize=1, linewidth=1)
-                ax_psit.plot(m.svea_states[i][4] - m.svea_states[0][4], social_psit, 'go-', markersize=1, linewidth=1)
-                ax_psit.set_xlim(0, int(m.svea_states[-1][4] - m.svea_states[0][4]) + 1)
-                ax_psit.set_ylim(0, int(m.svea_states[-1][4] - m.svea_states[0][4]))
+                intimate_plot.append([self.svea_states[i][4] - self.svea_states[0][4], intimate_psit])
+                personal_plot.append([self.svea_states[i][4] - self.svea_states[0][4], personal_psit])
+                social_plot.append([self.svea_states[i][4] - self.svea_states[0][4], social_psit])
+                ax_psit.plot(np.array(intimate_plot)[:, 0], np.array(intimate_plot)[:, 1], '-r', markersize=1, linewidth=1)
+                ax_psit.plot(np.array(personal_plot)[:, 0], np.array(personal_plot)[:, 1], '-b', markersize=1, linewidth=1)
+                ax_psit.plot(np.array(social_plot)[:, 0], np.array(social_plot)[:, 1], '-g', markersize=1, linewidth=1)
+                ax_psit.set_xlim(-0.2, int(self.svea_states[-1][4] - self.svea_states[0][4]) + 1)
+                ax_psit.set_ylim(-0.2, int(self.svea_states[-1][4] - self.svea_states[0][4]))
+                ax_psit.set_xlabel('t [s]')
+                ax_psit.set_ylabel('Invasion Time [s]')
+                ax_psit.legend(['Intimate Space Invasion Time', 'Personal Space Invasion Time', 'Social Space Invasion Time'], fontsize='x-small')
                 plt.draw()
                 plt.pause(0.01)
-        return intimate_psit, personal_psit, social_psit
 
     def plot_traj(self):
         """
         Method to plot robot's and pedestrian's trajectory, plus proxemics spaces
         """
         fig_traj, ax_traj = plt.subplots(num='Trajectory')
-        for key in m.pedestrian_states:
-            for i, pose in enumerate(m.pedestrian_states[key]):
+        fig_traj.set_dpi(150)
+        for key in self.pedestrian_states:
+            for i, pose in enumerate(self.pedestrian_states[key]):
                 ax_traj.clear()
-                intimate_proxemic = mpatches.Circle((pose[0], pose[1]), m.INTIMATE_RADIUS, edgecolor='orange', fill=False, alpha=0.5)
-                personal_proxemic = mpatches.Circle((pose[0], pose[1]), m.PERSONAL_RADIUS, edgecolor='green', fill=False, alpha=0.5)
-                social_proxemic = mpatches.Circle((pose[0], pose[1]), m.SOCIAL_RADIUS, edgecolor='blue', fill=False, alpha=0.5)
+                intimate_proxemic = mpatches.Circle((pose[0], pose[1]), self.INTIMATE_RADIUS, edgecolor='orange', fill=False, alpha=0.5)
+                personal_proxemic = mpatches.Circle((pose[0], pose[1]), self.PERSONAL_RADIUS, edgecolor='green', fill=False, alpha=0.5)
+                social_proxemic = mpatches.Circle((pose[0], pose[1]), self.SOCIAL_RADIUS, edgecolor='blue', fill=False, alpha=0.5)
                 ax_traj.add_artist(intimate_proxemic)
                 ax_traj.add_artist(personal_proxemic)
                 ax_traj.add_artist(social_proxemic)
-                ax_traj.plot(m.svea_states[i][0], m.svea_states[i][1], 'ro', markersize=2)
+                ax_traj.plot(self.svea_states[i][0], self.svea_states[i][1], 'ro', markersize=2)
                 ax_traj.plot(pose[0], pose[1], 'bo', markersize=2)
                 ax_traj.set_xlim(-2, 15)
                 ax_traj.set_ylim(-2, 15)
@@ -150,13 +165,11 @@ class SocialMeasurement(object):
                 plt.draw()
                 plt.pause(0.01)
 
+
 if __name__ == '__main__':
     m = SocialMeasurement()
     m.read_robot_poses()
     m.read_pedestrian_poses()
-    #m.plot_traj()
-    intimate_psit, personal_psit, social_psit = m.plot_psit()
-    print(intimate_psit, personal_psit, social_psit)
-    while True:
-        pass
-    
+    m.plot_traj()
+    m.plot_psit()
+    input("Press Enter to continue...")

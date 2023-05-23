@@ -367,6 +367,9 @@ class SocialNavigation(object):
         # If measuring mode is active, then close all files, when experiment is done
         if self.MEASURE:
             self.measurements.read_robot_poses()
+            self.measurements.read_pedestrian_poses()
+            #self.measurements.plot_traj()
+            self.measurements.plot_psit()
             self.measurements.close_files()
         print('--- GOAL REACHED ---')
 
