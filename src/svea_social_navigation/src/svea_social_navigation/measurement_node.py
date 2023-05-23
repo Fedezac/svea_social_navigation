@@ -93,7 +93,33 @@ class SocialMeasurement(object):
             old_states.append(list(array[1:]))
             self.pedestrian_states.update({int(array[0]): old_states})
 
+    def plot_traj(self):
+        """
+        Method to plot robot's and pedestrian's trajectory, plus proxemics spaces
+        """
+        fig_traj, ax_traj = plt.subplots(num='Trajectory')
+        fig_traj.set_dpi(150)
+        for key in self.pedestrian_states:
+            for i, pose in enumerate(self.pedestrian_states[key]):
+                ax_traj.clear()
+                intimate_proxemic = mpatches.Circle((pose[0], pose[1]), self.INTIMATE_RADIUS, edgecolor='orange', fill=False, alpha=0.5)
+                personal_proxemic = mpatches.Circle((pose[0], pose[1]), self.PERSONAL_RADIUS, edgecolor='green', fill=False, alpha=0.5)
+                social_proxemic = mpatches.Circle((pose[0], pose[1]), self.SOCIAL_RADIUS, edgecolor='blue', fill=False, alpha=0.5)
+                ax_traj.add_artist(intimate_proxemic)
+                ax_traj.add_artist(personal_proxemic)
+                ax_traj.add_artist(social_proxemic)
+                ax_traj.plot(self.svea_states[i][0], self.svea_states[i][1], 'ro', markersize=2)
+                ax_traj.plot(pose[0], pose[1], 'bo', markersize=2)
+                ax_traj.set_xlim(-2, 15)
+                ax_traj.set_ylim(-2, 15)
+                ax_traj.legend(['Intimate Space', 'Personal Space', 'Social Space', 'Robot Position', 'Pedestrian Position'], fontsize='x-small')
+                plt.draw()
+                plt.pause(0.01)
+
     def plot_psit(self):
+        """
+        Method used for plotting PSIT (used to measure how much time the robot spends in the personal space of a human)
+        """
         intimate_psit = 0
         intimate_invasion = False
         intimate_plot = []
@@ -142,34 +168,12 @@ class SocialMeasurement(object):
                 plt.draw()
                 plt.pause(0.01)
 
-    def plot_traj(self):
-        """
-        Method to plot robot's and pedestrian's trajectory, plus proxemics spaces
-        """
-        fig_traj, ax_traj = plt.subplots(num='Trajectory')
-        fig_traj.set_dpi(150)
-        for key in self.pedestrian_states:
-            for i, pose in enumerate(self.pedestrian_states[key]):
-                ax_traj.clear()
-                intimate_proxemic = mpatches.Circle((pose[0], pose[1]), self.INTIMATE_RADIUS, edgecolor='orange', fill=False, alpha=0.5)
-                personal_proxemic = mpatches.Circle((pose[0], pose[1]), self.PERSONAL_RADIUS, edgecolor='green', fill=False, alpha=0.5)
-                social_proxemic = mpatches.Circle((pose[0], pose[1]), self.SOCIAL_RADIUS, edgecolor='blue', fill=False, alpha=0.5)
-                ax_traj.add_artist(intimate_proxemic)
-                ax_traj.add_artist(personal_proxemic)
-                ax_traj.add_artist(social_proxemic)
-                ax_traj.plot(self.svea_states[i][0], self.svea_states[i][1], 'ro', markersize=2)
-                ax_traj.plot(pose[0], pose[1], 'bo', markersize=2)
-                ax_traj.set_xlim(-2, 15)
-                ax_traj.set_ylim(-2, 15)
-                ax_traj.legend(['Intimate Space', 'Personal Space', 'Social Space', 'Robot Position', 'Pedestrian Position'], fontsize='x-small')
-                plt.draw()
-                plt.pause(0.01)
-
     def plot_sii(self):
         """
-        Method for plotting SII 
+        Method for plotting SII (used to measure how close the robot is to thu human with a strong focus on the
+        psychological aspect)
         """
-        # Psychological threshold for human safety
+        # Psychological threshold for human safety (is SII > Tp the human might feel uncomfortable)
         Tp = 0.54
         sigma = self.PERSONAL_RADIUS / 2
         sii_plot = []
@@ -187,6 +191,27 @@ class SocialMeasurement(object):
                 plt.draw()
                 plt.pause(0.01)
 
+    def plot_rmi(self):
+        """
+        Method for plotting RMI (used to measure the relative motion between a robot and a human)
+        """
+        Tm = 2.2
+        rmi_plot = []
+        fig_rmi, ax_rmi = plt.subplots(num='RMI (Relative Motion Index)')
+        fig_rmi.set_dpi(150)
+        for key in self.pedestrian_states:
+            for i, pose in enumerate(self.pedestrian_states[key]):
+                beta = self.svea_states[i][3] - np.arctan2(self.svea_states[i][1] - pose[1], self.svea_states[i][0] - pose[0])
+                phi = pose[3] - np.arctan2(pose[1] - self.svea_states[i][1], pose[0] - self.svea_states[i][1])
+                rmi = (2 + self.svea_states[i][2] * np.cos(beta) + pose[2] * np.cos(phi)) / np.sqrt((pose[0] - self.svea_states[i][0]) ** 2 + (pose[1] - self.svea_states[i][1]) ** 2)
+                rmi_plot.append([self.svea_states[i][4] - self.svea_states[0][4], rmi])
+                ax_rmi.plot(np.array(self.svea_states)[:, 4] - self.svea_states[0][4], np.full(np.shape(self.svea_states)[0], Tm), '-r', linewidth=1)
+                ax_rmi.plot(np.array(rmi_plot)[:, 0], np.array(rmi_plot)[:, 1], '-bo', markersize=2, linewidth=1)
+                ax_rmi.set_xlim(0, int(self.svea_states[-1][4] - self.svea_states[0][4]) + 1)
+                ax_rmi.set_ylim(0, 7)
+                ax_rmi.legend(['Tm Psychological Threshold', 'RMI'], fontsize='x-small')
+                plt.draw()
+                plt.pause(0.01)
 
 
 if __name__ == '__main__':
@@ -195,5 +220,6 @@ if __name__ == '__main__':
     m.read_pedestrian_poses()
     #m.plot_traj()
     #m.plot_psit()
-    m.plot_sii()
+    #m.plot_sii()
+    m.plot_rmi()
     input("Press Enter to continue...")

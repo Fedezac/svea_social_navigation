@@ -370,6 +370,8 @@ class SocialNavigation(object):
             self.measurements.read_pedestrian_poses()
             #self.measurements.plot_traj()
             self.measurements.plot_psit()
+            self.measurements.plot_sii()
+            self.measurements.plot_rmi()
             self.measurements.close_files()
         print('--- GOAL REACHED ---')
 
