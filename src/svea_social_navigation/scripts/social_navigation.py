@@ -327,14 +327,14 @@ class SocialNavigation(object):
                 pedestrians.append(self.sfm_helper.pedestrian_states[p])
                 # If measuring mode is active, add pedestrian pose to file
                 if self.MEASURE:
-                    self.measurements.add_pedestrian_pose(id, np.array(pedestrians)[-1, :])
+                    self.measurements.add_pedestrian_pose(id, np.array(pedestrians)[-1, :], rospy.get_time())
                     id += 1
         else:
             # If mocap is being used
             pedestrians.append([self.sfm_helper.pedestrian_localizer.state.x, self.sfm_helper.pedestrian_localizer.state.y, self.sfm_helper.pedestrian_localizer.state.v, self.sfm_helper.pedestrian_localizer.state.yaw])
             # If measuring mode is active, add pedestrian pose to file
             if self.MEASURE:
-                self.measurements.add_pedestrian_pose(0, np.array(pedestrians)[-1, :])
+                self.measurements.add_pedestrian_pose(0, np.array(pedestrians)[-1, :], rospy.get_time())
         # Release mutex
         self.sfm_helper.mutex.release()
         # Keep only pedestrians that are in the local costmap
@@ -385,7 +385,7 @@ class SocialNavigation(object):
         print(f'State: {self.x0}')
         # If measuring mode is active, add robot pose to file
         if self.MEASURE:
-            self.measurements.add_robot_pose(self.x0)
+            self.measurements.add_robot_pose(self.x0, rospy.get_time())
 
         # Get local static unmapped obstacles, local dynamic obstacles, local pedestrians
         local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc = self.get_local_agents()
