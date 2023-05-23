@@ -131,9 +131,9 @@ class SocialMeasurement(object):
                 intimate_plot.append([self.svea_states[i][4] - self.svea_states[0][4], intimate_psit])
                 personal_plot.append([self.svea_states[i][4] - self.svea_states[0][4], personal_psit])
                 social_plot.append([self.svea_states[i][4] - self.svea_states[0][4], social_psit])
-                ax_psit.plot(np.array(intimate_plot)[:, 0], np.array(intimate_plot)[:, 1], '-r', markersize=1, linewidth=1)
-                ax_psit.plot(np.array(personal_plot)[:, 0], np.array(personal_plot)[:, 1], '-b', markersize=1, linewidth=1)
-                ax_psit.plot(np.array(social_plot)[:, 0], np.array(social_plot)[:, 1], '-g', markersize=1, linewidth=1)
+                ax_psit.plot(np.array(intimate_plot)[:, 0], np.array(intimate_plot)[:, 1], '-r', linewidth=1)
+                ax_psit.plot(np.array(personal_plot)[:, 0], np.array(personal_plot)[:, 1], '-b', linewidth=1)
+                ax_psit.plot(np.array(social_plot)[:, 0], np.array(social_plot)[:, 1], '-g', linewidth=1)
                 ax_psit.set_xlim(-0.2, int(self.svea_states[-1][4] - self.svea_states[0][4]) + 1)
                 ax_psit.set_ylim(-0.2, int(self.svea_states[-1][4] - self.svea_states[0][4]))
                 ax_psit.set_xlabel('t [s]')
@@ -165,11 +165,35 @@ class SocialMeasurement(object):
                 plt.draw()
                 plt.pause(0.01)
 
+    def plot_sii(self):
+        """
+        Method for plotting SII 
+        """
+        # Psychological threshold for human safety
+        Tp = 0.54
+        sigma = self.PERSONAL_RADIUS / 2
+        sii_plot = []
+        fig_sii, ax_sii = plt.subplots(num='SII (Social Individual Index)')
+        fig_sii.set_dpi(150)
+        for key in self.pedestrian_states:
+            for i, pose in enumerate(self.pedestrian_states[key]):
+                sii = np.exp(-((self.svea_states[i][0] - pose[0]) / (np.sqrt(2) * sigma)) ** 2  + ((self.svea_states[i][1] - pose[1]) / (np.sqrt(2) * sigma)) ** 2)
+                sii_plot.append([self.svea_states[i][4] - self.svea_states[0][4], sii])
+                ax_sii.plot(np.array(self.svea_states)[:, 4] - self.svea_states[0][4], np.full(np.shape(self.svea_states)[0], Tp), '-r', linewidth=1)
+                ax_sii.plot(np.array(sii_plot)[:, 0], np.array(sii_plot)[:, 1], '-bo', markersize=2, linewidth=1)
+                ax_sii.set_xlim(0, int(self.svea_states[-1][4] - self.svea_states[0][4]) + 1)
+                ax_sii.set_ylim(0, 1.5)
+                ax_sii.legend(['Tp Psychological Threshold', 'SII'], fontsize='x-small')
+                plt.draw()
+                plt.pause(0.01)
+
+
 
 if __name__ == '__main__':
     m = SocialMeasurement()
     m.read_robot_poses()
     m.read_pedestrian_poses()
-    m.plot_traj()
-    m.plot_psit()
+    #m.plot_traj()
+    #m.plot_psit()
+    m.plot_sii()
     input("Press Enter to continue...")
