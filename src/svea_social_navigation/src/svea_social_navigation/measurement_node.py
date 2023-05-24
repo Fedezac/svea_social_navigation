@@ -17,7 +17,7 @@ class SocialMeasurement(object):
 
     def __init__(self):
         """
-        Init metho for the SocialMeasurement class
+        Init method for the SocialMeasurement class
         """
         # Clear both files
         # TODO: uncomment when running experiments (to erase debug file)
@@ -168,9 +168,9 @@ class SocialMeasurement(object):
                 plt.draw()
                 plt.pause(0.01)
 
-    def plot_sii(self):
+    def plot_sii_over_time(self):
         """
-        Method for plotting SII (used to measure how close the robot is to thu human with a strong focus on the
+        Method for plotting SII over time (used to measure how close the robot is to thu human with a strong focus on the
         psychological aspect)
         """
         # Psychological threshold for human safety (is SII > Tp the human might feel uncomfortable)
@@ -191,9 +191,9 @@ class SocialMeasurement(object):
                 plt.draw()
                 plt.pause(0.01)
 
-    def plot_rmi(self):
+    def plot_rmi_over_time(self):
         """
-        Method for plotting RMI (used to measure the relative motion between a robot and a human)
+        Method for plotting RMI over time (used to measure the relative motion between a robot and a human)
         """
         Tm = 2.2
         rmi_plot = []
@@ -213,6 +213,51 @@ class SocialMeasurement(object):
                 plt.draw()
                 plt.pause(0.01)
 
+    def plot_sii(self):
+        """
+        Method for plotting SII over path waypoints (used to measure how close the robot is to thu human with a strong focus on the
+        psychological aspect)
+        """
+        # Psychological threshold for human safety (is SII > Tp the human might feel uncomfortable)
+        Tp = 0.54
+        sigma = self.PERSONAL_RADIUS / 2
+        sii_plot = []
+        fig_sii, ax_sii = plt.subplots(num='SII (Social Individual Index)')
+        fig_sii.set_dpi(150)
+        for key in self.pedestrian_states:
+            for i, pose in enumerate(self.pedestrian_states[key]):
+                sii = np.exp(-((self.svea_states[i][0] - pose[0]) / (np.sqrt(2) * sigma)) ** 2  + ((self.svea_states[i][1] - pose[1]) / (np.sqrt(2) * sigma)) ** 2)
+                sii_plot.append([i, sii])
+                ax_sii.plot(*range(len(self.pedestrian_states[key])), np.full(np.shape(self.svea_states)[0], Tp), '-r', linewidth=1)
+                ax_sii.plot(np.array(sii_plot)[:, 0], np.array(sii_plot)[:, 1], '-bo', markersize=2, linewidth=1)
+                ax_sii.set_xlim(0, len(self.pedestrian_states[key]))
+                ax_sii.set_ylim(0, 1.5)
+                ax_sii.legend(['Tp Psychological Threshold', 'SII'], fontsize='x-small')
+                plt.draw()
+                plt.pause(0.01)
+
+    def plot_rmi(self):
+        """
+        Method for plotting RMI over path waypoints (used to measure the relative motion between a robot and a human)
+        """
+        Tm = 2.2
+        rmi_plot = []
+        fig_rmi, ax_rmi = plt.subplots(num='RMI (Relative Motion Index)')
+        fig_rmi.set_dpi(150)
+        for key in self.pedestrian_states:
+            for i, pose in enumerate(self.pedestrian_states[key]):
+                beta = self.svea_states[i][3] - np.arctan2(self.svea_states[i][1] - pose[1], self.svea_states[i][0] - pose[0])
+                phi = pose[3] - np.arctan2(pose[1] - self.svea_states[i][1], pose[0] - self.svea_states[i][1])
+                rmi = (2 + self.svea_states[i][2] * np.cos(beta) + pose[2] * np.cos(phi)) / np.sqrt((pose[0] - self.svea_states[i][0]) ** 2 + (pose[1] - self.svea_states[i][1]) ** 2)
+                rmi_plot.append([i, rmi])
+                ax_rmi.plot(*range(len(self.pedestrian_states[key])), np.full(np.shape(self.svea_states)[0], Tm), '-r', linewidth=1)
+                ax_rmi.plot(np.array(rmi_plot)[:, 0], np.array(rmi_plot)[:, 1], '-bo', markersize=2, linewidth=1)
+                ax_rmi.set_xlim(0, len(self.pedestrian_states[key]))
+                ax_rmi.set_ylim(0, 7)
+                ax_rmi.legend(['Tm Psychological Threshold', 'RMI'], fontsize='x-small')
+                plt.draw()
+                plt.pause(0.01)
+
 
 if __name__ == '__main__':
     m = SocialMeasurement()
@@ -220,6 +265,8 @@ if __name__ == '__main__':
     m.read_pedestrian_poses()
     #m.plot_traj()
     #m.plot_psit()
+    #m.plot_sii_over_time()
+    #m.plot_rmi_over_time()
     #m.plot_sii()
     m.plot_rmi()
     input("Press Enter to continue...")
