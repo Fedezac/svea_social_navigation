@@ -14,7 +14,9 @@ from svea.simulators.sim_SVEA import SimSVEA
 from svea.interfaces import LocalizationInterface, ActuationInterface
 from svea_mocap.mocap import MotionCaptureInterface
 from svea.data import RVIZPathHandler
+from svea_planners.astar import AStarPlanner, AStarWorld
 from svea_planners.planner_interface import PlannerInterface
+from svea_planners.path_smoother import BSpline
 from svea_social_navigation.apf import ArtificialPotentialFieldHelper
 from svea_social_navigation.static_unmapped_obstacle_simulator import StaticUnmappedObstacleSimulator
 from svea_social_navigation.dynamic_obstacle_simulator import DynamicObstacleSimulator
@@ -138,12 +140,12 @@ class SocialNavigation(object):
         self.data_handler = RVIZPathHandler()
 
         # Define planner interface
-        self.pi = PlannerInterface(obs_margin=0.2, degree=3, s=None, theta_threshold=0.3)
-        # Set start and goal point
-        self.pi.set_start([self.state.x, self.state.y])
-        self.pi.set_goal([self.GOAL[0], self.GOAL[1]])
+        self.pi = PlannerInterface(theta_threshold=0.3)
         # Initialize planner world
-        self.pi.initialize_planner_world()
+        delta, limits, obstacles = self.pi.get_planner_world()
+        self.world = AStarWorld(delta=delta, limit=limits, obstacles=np.multiply([delta[0], delta[1], 1], np.array(obstacles)).tolist(), obs_margin=0.2)
+        # Initialize planner
+        self.planner = AStarPlanner(self.world, [self.state.x, self.state.y], [self.GOAL[0], self.GOAL[1]])
 
         # Initialize dynamic obstacles simulator
         self.DYNAMIC_OBS = load_param('~dynamic_obstacles', [])
@@ -186,7 +188,7 @@ class SocialNavigation(object):
             self.simulator.toggle_pause_simulation()
 
         # Create APF object
-        self.apf = ArtificialPotentialFieldHelper(svea_name=self.SVEA_NAME, mapped_obs=self.pi.get_mapped_obs_pos())
+        self.apf = ArtificialPotentialFieldHelper(svea_name=self.SVEA_NAME)
         self.apf.wait_for_local_costmap()
         # Create vehicle model object
         self.model = BicycleModel(initial_state=self.x0, dt=self.DELTA_TIME)
@@ -236,31 +238,34 @@ class SocialNavigation(object):
 
     def plan(self):
         # Compute safe global path
-        self.pi.compute_path()
+        planner_path = self.planner.create_path()
         # For mich's integration
         #self.pi.get_path_from_topic()
-        # Init visualize path interface
-        self.pi.initialize_path_interface()
         # Get path 
-        b_spline_path = np.array(self.pi.get_points_path(interpolate=True))
+        # Init path smoother
+        self.bspline_smoother = BSpline(planner_path)
+        b_spline_path = np.array(self.bspline_smoother.interpolate_b_spline_path(degree=3)).T
         # Get smoothed path and extract social waypoints (other possible nice combination of parameters for path
         # smoothing is interpolate=False and degree=4)
         #b_spline_path = np.array(self.pi.get_social_waypoints(interpolate=True))
         # Create array for MPC reference
         self.path = np.zeros((np.shape(b_spline_path)[0], 4))
+        print(self.path)
         self.path[:, 0] = b_spline_path[:, 0]
         self.path[:, 1] = b_spline_path[:, 1]
         self.path[:, 2] = [self.STRAIGHT_SPEED if abs(curv) < 1e-2 else self.TURN_SPEED for curv in b_spline_path[:, 3]]
         self.path[:, 3] = b_spline_path[:, 2]
-        # Re-initialize path interface to visualize on RVIZ socially aware path
+        # Init visualize path interface
         self.pi.initialize_path_interface()
+        # Re-initialize path interface to visualize on RVIZ socially aware path
+        self.pi.set_points_path(self.path[:, 0:2])
         print(f'Social navigation path: {self.path[:, 0:2]} size, {np.shape(self.path)[0]}')
 
         # If debug mode is on, publish map's representation on RVIZ
         if self.DEBUG:
             self.pi.publish_internal_representation()
         # Publish global path on rviz
-        self.pi.publish_rviz_path()
+        self.pi.publish_path()
             
     def _visualize_data(self, x_pred, y_pred, velocity, steering):
         # Visualize predicted local tracectory
@@ -369,9 +374,9 @@ class SocialNavigation(object):
             self.measurements.read_robot_poses()
             self.measurements.read_pedestrian_poses()
             #self.measurements.plot_traj()
-            self.measurements.plot_psit()
-            self.measurements.plot_sii()
-            self.measurements.plot_rmi()
+            #self.measurements.plot_psit()
+            #self.measurements.plot_sii()
+            #self.measurements.plot_rmi()
             self.measurements.close_files()
         print('--- GOAL REACHED ---')
 

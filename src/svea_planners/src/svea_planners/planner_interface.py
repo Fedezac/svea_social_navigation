@@ -2,76 +2,150 @@
 
 import rospy
 import numpy as np
-from svea_planners.gridmap_interface import GridMapInterface
-from svea_planners.path_interface import PathInterface
-from svea_planners.path_smoother import PathSmoother
-from svea_planners.astar import AStarPlanner, AStarWorld
+from nav_msgs.msg import OccupancyGrid
+import math
+from tf.transformations import quaternion_from_euler
 from nav_msgs.msg import Path
+from geometry_msgs.msg import PoseStamped
 
 def assert_points(pts):
     assert isinstance(pts[0], (int, float)), 'points contain a coordinate pair wherein one value is not a number'
     assert isinstance(pts[1], (int, float)), 'points contain a coordinate pair wherein one value is not a number'
         
+def load_param(name, value=None):
+    if value is None:
+        assert rospy.has_param(name), f'Missing parameter "{name}"'
+    return rospy.get_param(name, value)
+
 class PlannerInterface(object):
-    _gridmap_interface = None
     _path_interface = None
-    _world = None
-    _planner = None
-    _start = None
-    _goal = None
-    _path = None
-    _obs_margin = None
-    _social_waypoints = None
+    _gridmap_msg = None
+    _gridmap_sub = None
+    _map_topic = None
+    _gridmap = None
+    _path_pub = None
+    _path_topic = None
+    _points_path = None
 
-    def __init__(self, obs_margin=0.05, degree=3, s=None, theta_threshold=0.03):
-        self._obs_margin = obs_margin
-
-        # Path smoothing stuff
-        self._degree = degree
-        self._smoothing_parameter = s
-
+    def __init__(self, theta_threshold=0.03):
         # Social waypoint extraction
         self._theta_threshold = theta_threshold
 
-        self._gridmap_interface = GridMapInterface()
-        self._gridmap_interface.init_ros_subscribers()
+        # Map interface
+        self._map_topic = load_param('~map_topic', '/map')
+        self.init_gridmap_subscribers()
+
+        # Path interface
+        self._path_topic = load_param('~path_topic', '/path')
+        self._path_pub = rospy.Publisher(self._path_topic, Path, latch=True, queue_size=1)
+        self._pose_path = list()
+        self._rviz_path = Path()
+        self.init_gridmap_subscribers()
         rospy.loginfo("Planning interface correctly initialized")
         
-    def initialize_planner_world(self):
-        """
-        Function that defines the planner object and the planner world 
-        (which includes a grid representing the environment with its obstacles).
-        It defines the planner only in case start and goal position are given.
-        """
-        delta, limits, obstacles = self._gridmap_interface.get_planner_world()
-        self._world = AStarWorld(delta=delta, limit=limits, obstacles=np.multiply([delta[0], delta[1], 1], np.array(obstacles)).tolist(), obs_margin=self._obs_margin)
-        if self._start and self._goal:
-            self._planner = AStarPlanner(self._world, self._start, self._goal)
-        else:
-            raise Exception('No start and goal points were given')
+    ## GRIDMAP INTERFACE ##
+    def init_gridmap_subscribers(self):
+        self._gridmap_sub = rospy.Subscriber(self._map_topic, OccupancyGrid, self._gridmap_cb, queue_size=1)
+        
+    def _gridmap_cb(self, msg):
+        self._gridmap_msg = OccupancyGrid(msg.header, msg.info, msg.data)
 
-    def compute_path(self):
-        self._path = self._planner.create_path()
+    def _get_delta(self):
+        if self._gridmap_msg  is not None:
+            return [self._gridmap_msg.info.resolution, self._gridmap_msg.info.resolution]
+    
+    def _get_limits(self):
+        if self._gridmap_msg is not None:
+            return [[0, self._gridmap_msg.info.width * self._gridmap_msg.info.resolution], [0, self._gridmap_msg.info.height * self._gridmap_msg.info.resolution]]
+    
+    def _get_obstacles(self):
+        if self._gridmap_msg  is not None:
+            gridmap = np.array(self._gridmap_msg.data).reshape((self._gridmap_msg.info.height, self._gridmap_msg.info.width)).T * 0.01
+            # Cell values are changed to -0.01 (unknown), 0 (free), 1 (obstacle)
+            obstacles = []
+            for (x, y), cell in np.ndenumerate(gridmap):
+                #!! Strong assumption: unknown cells are considered as obstacles
+                if cell < 0 or cell == 1:
+                    obstacles.append([x, y, self._gridmap_msg.info.resolution])
+            return obstacles
+
+    def get_planner_world(self):
+        while self._gridmap_msg is None:
+            continue
+        return self._get_delta(), self._get_limits(), self._get_obstacles()
+
+    def publish_map_internal_representation(self):
+        obstacles = []
+        delta, limits, obs = self.get_planner_world()
+
+        rows_int = int(np.round(limits[0][1] / delta[0]))
+        cols_int = int(np.round(limits[1][1] / delta[1]))
+        data = np.zeros(rows_int * cols_int).reshape(rows_int, cols_int)
+        [obstacles.append(tup[0:2]) for tup in obs]
+        obs_np = np.asarray(obstacles)
+        data[obs_np[:, 0], obs_np[:, 1]] = 100  
+
+        map_pub = rospy.Publisher('/map_from_grid', OccupancyGrid, latch=True, queue_size=1)
+        map_msg = OccupancyGrid()
+        map_msg.data = [item for sublist in np.array(data, dtype=int).tolist() for item in sublist]
+        map_msg.header.frame_id = 'map'
+        map_msg.header.stamp = rospy.Time.now()
+        map_msg.info.resolution = delta[1]
+        map_msg.info.width = cols_int
+        map_msg.info.height = rows_int
+        quat = quaternion_from_euler(0, math.pi , -math.pi / 2)
+        map_msg.info.origin.orientation.x = quat[0]
+        map_msg.info.origin.orientation.y = quat[1]
+        map_msg.info.origin.orientation.z = quat[2]
+        map_msg.info.origin.orientation.w = quat[3]
+
+        print('Publishing map...')
+        map_pub.publish(map_msg)
+    ## END OF GRIDMAP INTERFACE##
+
+    ## PATH INTERFACE ##
+    def initialize_path_interface(self):
+        self._path_topic = load_param('~path_topic', '/path')
+        self._path_pub = rospy.Publisher(self._path_topic, Path, latch=True, queue_size=1)
+
+    def create_pose_path(self):
+        for point in self._points_path:
+            pose = PoseStamped()
+            pose.header.frame_id = 'map'
+            pose.header.stamp = rospy.Time.now()
+            pose.pose.position.x = point[0]
+            pose.pose.position.y = point[1]
+            pose.pose.position.z = 0
+            self._pose_path.append(pose)
+
+    def publish_rviz_path(self):
+        if self._pose_path:
+            self._rviz_path.header.frame_id = 'map'
+            self._rviz_path.header.stamp = rospy.Time.now()
+            self._rviz_path.poses = self._pose_path
+            print('Publishing path (length = {}) ...'.format(len(self._pose_path)))
+            self._path_pub.publish(self._rviz_path)
+
+    def set_points_path(self, path):
+        self._points_path = path
+    
+    def get_points_path_reduced(self, granularity=4):
+        indexes = np.linspace(0, len(self._points_path) - 1, num=int(np.round(len(self._points_path) / granularity)), dtype=int).tolist()
+        return np.array(self._points_path)[indexes]
+    ## END OF PATH INTERFACE ##
 
     def get_path_from_topic(self):
         msg = rospy.wait_for_message('/smooth_path', Path, timeout=None)
         path = []
         for p in msg.poses:
             path.append([p.pose.position.x, p.pose.position.y])
-        self._path = path
         return path
-
-    def initialize_path_interface(self):
-        if self._path is not None:
-            self._path_interface = PathInterface(self._path)
-        else:
-            raise Exception('No path was computed beforehand')
         
-    def publish_rviz_path(self):
-        self._path_interface.create_pose_path()
-        self._path_interface.publish_rviz_path()
+    def publish_path(self):
+        self.create_pose_path()
+        self.publish_rviz_path()
 
-    def get_points_path(self, granularity=None, interpolate=False):
+    def get_points_path(self, granularity=None):
         """
         Function to get every (x, y) point composing the path
 
@@ -83,30 +157,26 @@ class PlannerInterface(object):
         :rtype: list[float]
         """
         if granularity is not None:
-            path = self._path_interface.get_points_path_reduced(granularity)
+            path = self.get_points_path_reduced(granularity)
         else:
-            path = self._path_interface.get_points_path()
-        self._path_smoother = PathSmoother(path)
-        if interpolate:
-            return np.array(self._path_smoother.interpolate_b_spline_path(degree=self._degree)).T
-        else:
-            return np.array(self._path_smoother.approximate_b_spline_path(degree=self._degree, s=self._smoothing_parameter)).T
+            path = self._points_path
+        return path
         
-    def get_social_waypoints(self, granularity=None, interpolate=False):
+    def get_social_waypoints(self, granularity=None):
         """
         Function used to retrieve socially feasible waypoints (from Kivrak et al. 2022)
 
         :return: array of socially feasible waypoints
         :rtype: numpy array of floats
         """
-        path = np.array(self.get_points_path(granularity=granularity, interpolate=interpolate))
+        path = np.array(self.get_points_path(granularity=granularity))
         # Empty array of waypoints
-        self._social_waypoints = []
+        social_waypoints = []
         # For every point in the path
         for idx, p in enumerate(path):
             # Starting and ending point must be in the array of socially acceptable waypoints
             if idx == 0 or idx == np.shape(path)[0] - 1:
-                self._social_waypoints.append(p)
+                social_waypoints.append(p)
             else:
                 # Compute vector connecting current point and precedent one
                 v1 = p[0:2] - path[idx - 1, 0:2]
@@ -116,44 +186,6 @@ class PlannerInterface(object):
                 theta = np.arccos(np.clip(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2)), -1.0, 1.0))
                 # If angle is less then a certain threshold, then add current point to array of waypoints
                 if theta < self._theta_threshold:
-                    self._social_waypoints.append(p)
-        self._path = self._social_waypoints
-        return self._social_waypoints
+                    social_waypoints.append(p)
+        return social_waypoints
           
-    def publish_internal_representation(self):
-        self._gridmap_interface.publish_map_internal_representation()
-
-    def set_start(self, p):
-        """
-        Setter method for start position
-        """
-        assert_points(p)
-        self._start = p
-
-    def set_goal(self, p):
-        """
-        Setter method for goal position
-        """
-        assert_points(p)
-        self._goal = p
-
-    def get_start(self):
-        """
-        Getter method for start position
-        """
-        return self._start
-    
-    def get_goal(self):
-        """
-        Getter method for goal position
-        """
-        return self._goal
-    
-    def get_mapped_obs_pos(self):
-        """
-        Function to get the static and mapped obstacle position
-
-        :return: position of mapped obstacles
-        :rtype: list[tuple[float]]
-        """
-        return np.array(self._world.OBS)[:, 0:2]

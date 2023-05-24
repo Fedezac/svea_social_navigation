@@ -4,7 +4,7 @@ import numpy as np
 import scipy.interpolate as interpolate
 
 
-class PathSmoother(object):
+class BSpline(object):
     """
     PathSmoother class, based on PythonRobotics Package
     """

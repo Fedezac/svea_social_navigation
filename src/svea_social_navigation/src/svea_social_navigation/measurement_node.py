@@ -4,8 +4,6 @@ import numpy as np
 import re
 from matplotlib import pyplot as plt
 import matplotlib.patches as mpatches
-import threading
-import concurrent.futures
 
 class SocialMeasurement(object):
     SVEA_FILE = '/home/federico/universita/thesis_ws/ws/src/svea_social_navigation/data/svea_states.txt'

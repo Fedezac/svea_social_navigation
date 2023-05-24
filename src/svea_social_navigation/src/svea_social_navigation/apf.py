@@ -18,7 +18,7 @@ class ArtificialPotentialFieldHelper(object):
     """
     Class that given a local costmap computes the APF (only related to obstacles) for given robot 
     """
-    def __init__(self, mapped_obs, svea_name="svea2"):
+    def __init__(self, svea_name="svea2"):
         """
         Init method for the ArtificialPotentialField class
         """
@@ -33,9 +33,6 @@ class ArtificialPotentialFieldHelper(object):
 
         #  Waypoint variables
         self._waypoint = None
-
-        # Static mapped obstacles
-        self._mapped_obs = mapped_obs
 
         # Costmap variables
         self._local_costmap = None
@@ -67,26 +64,6 @@ class ArtificialPotentialFieldHelper(object):
         self._map_x = msg.info.origin.position.x
         self._map_y = msg.info.origin.position.y
         self._local_costmap = np.reshape(msg.data, (self._map_height, self._map_width))
-        
-    def get_obstacles_position(self):
-        """
-        Function to retrieve obstacles position, given a local costmap
-
-        :return: position of obstacles
-        :rtype: list[tuple[float]]
-        """
-        if self._local_costmap is not None:
-            # Get obstacles indexes
-            obs_indexes = np.transpose((self._local_costmap > 50).nonzero())
-            obs_positions = []
-            for idx in obs_indexes:
-                pos = [idx[1] * self._map_resolution + self._map_x, idx[0] * self._map_resolution + self._map_y]
-                distance, index = spatial.KDTree(self._mapped_obs).query(pos)
-                if distance > 1:
-                    obs_positions.append(pos)
-            return np.array(obs_positions)
-        else:
-            return None
         
     def get_local_obstacles(self, obs):
         """
