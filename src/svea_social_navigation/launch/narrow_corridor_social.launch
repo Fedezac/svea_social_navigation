@@ -4,8 +4,8 @@
     <!-- Launch file arguments -->
     <!-- SET DEBUG TO TRUE AT YOUR OWN 'COMPUTATIONALLY DEMANDING' RISK -->
     <arg name="debug" default="True"/>
-    <arg name="map" default="corridor"/>
-    <arg name="scene_file" default="corridor_scene"/>
+    <arg name="map" default="narrow_corridor"/>
+    <arg name="scene_file" default="narrow_corridor_scene"/>
     <arg name="local_costmap_topic" default="/costmap_node/costmap/costmap"/>
     <arg name="waypoint_topic" default="/target"/>
     <arg name="dynamic_obstacle_topic" default="/dynamic_obstacles"/>
@@ -15,7 +15,7 @@
     <arg name="is_sim" default="true"/>
     <arg name="use_rviz" default="true"/>
     <arg name="remote_rviz" default="false"/>
-    <arg name="obstacle_map" default="corridor_obstacles"/>
+    <arg name="obstacle_map" default="narrow_corridor_obstacles"/>
     <arg name="initial_pose_x" default="-2.65488696"/>
     <arg name="initial_pose_y" default="-1.64422277"/>
     <arg name="initial_pose_a" default="1.57" />
@@ -75,9 +75,9 @@
         <param name="is_sim" value="$(arg is_sim)"/>
         <param name="remote_rviz" value="$(arg remote_rviz)" />
         <rosparam>
-            state: [5, 4.1, 1.57, 0] # initial state (x, y, yaw)
-            goal: [3.5, 30]
-            static_unmapped_obstacles: []
+            state: [2.5, 0.9, 1.57, 0] # initial state (x, y, yaw)
+            goal: [2.5, 10]
+            static_unmapped_obstacles: [[3.4, 5]]
             dynamic_obstacles: [] # (x, y, v, theta, x_lb, x_ub, y_lb, y_ub)
             is_pedsim: True
             measure: True

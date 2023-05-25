@@ -161,7 +161,7 @@ class SocialNavigation(object):
         self.sfm_helper = SFMHelper(is_pedsim=self.IS_PEDSIM)
 
         # Initialize measurement class
-        self.measurements = SocialMeasurement()
+        self.measurements = SocialMeasurement(write=True)
 
         if self.IS_SIM:
             # Simulator needs a model to simulate
@@ -202,7 +202,7 @@ class SocialNavigation(object):
             N=self.WINDOW_LEN,
             Q=[20, 20, 50, .1],
             R=[1, .5],
-            S=[120, 150, 70],
+            S=[120, 150, 150],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
@@ -371,12 +371,6 @@ class SocialNavigation(object):
             rospy.sleep(0.1)
         # If measuring mode is active, then close all files, when experiment is done
         if self.MEASURE:
-            self.measurements.read_robot_poses()
-            self.measurements.read_pedestrian_poses()
-            #self.measurements.plot_traj()
-            self.measurements.plot_psit()
-            self.measurements.plot_sii()
-            self.measurements.plot_rmi()
             self.measurements.close_files()
         print('--- GOAL REACHED ---')
 
