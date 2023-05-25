@@ -343,7 +343,7 @@ class SocialNavigation(object):
         # Release mutex
         self.sfm_helper.mutex.release()
         # Keep only pedestrians that are in the local costmap
-        local_pedestrians = self.apf.get_local_obstacles(pedestrians[0:2])
+        local_pedestrians = self.apf.get_local_obstacles(pedestrians)
         # Insert them into MPC structure
         local_pedestrians_mpc[:, 0:np.shape(local_pedestrians)[0]] = local_pedestrians.T
 
@@ -374,9 +374,9 @@ class SocialNavigation(object):
             self.measurements.read_robot_poses()
             self.measurements.read_pedestrian_poses()
             #self.measurements.plot_traj()
-            #self.measurements.plot_psit()
-            #self.measurements.plot_sii()
-            #self.measurements.plot_rmi()
+            self.measurements.plot_psit()
+            self.measurements.plot_sii()
+            self.measurements.plot_rmi()
             self.measurements.close_files()
         print('--- GOAL REACHED ---')
 
@@ -399,7 +399,7 @@ class SocialNavigation(object):
 
         # Get local static unmapped obstacles, local dynamic obstacles, local pedestrians
         local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc = self.get_local_agents()
-        
+
         # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of
         # index out of bounds
         self.waypoint_idx = np.minimum(np.argmin(np.linalg.norm(self.path[:, 0:2] - np.array([self.x0[0], self.x0[1]]), axis=1)) + 1, np.shape(self.path)[0] - 1)
