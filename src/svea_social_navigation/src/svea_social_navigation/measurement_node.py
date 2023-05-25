@@ -19,8 +19,8 @@ class SocialMeasurement(object):
         """
         # Clear both files
         # TODO: uncomment when running experiments (to erase debug file)
-        #open(self.SVEA_FILE, 'w').close()
-        #open(self.PEDESTRIAN_FILE, 'w').close()
+        open(self.SVEA_FILE, 'w').close()
+        open(self.PEDESTRIAN_FILE, 'w').close()
         # Open files in append plus read mode
         self.svea_file = open(self.SVEA_FILE, 'a+')
         self.pedestrian_file = open(self.PEDESTRIAN_FILE, 'a+')
