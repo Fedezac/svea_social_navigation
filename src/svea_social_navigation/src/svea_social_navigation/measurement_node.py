@@ -201,7 +201,6 @@ class SocialMeasurement(object):
         plt.ion()
         fig_rmi, ax_rmi = plt.subplots(num='RMI (Relative Motion Index) Over Time')
         fig_rmi.set_dpi(200)
-        colors = 'bgrcmyk'
         for i in range(len(self.pedestrian_states[0])):
             for key in self.pedestrian_states:
                 beta = self.svea_states[i][3] - np.arctan2(self.svea_states[i][1] - self.pedestrian_states[key][i][1], self.svea_states[i][0] - self.pedestrian_states[key][i][0])
@@ -210,7 +209,7 @@ class SocialMeasurement(object):
             rmi_plot.append([self.svea_states[i][4] - self.svea_states[0][4], np.max(rmi)])
             rmi = []
             ax_rmi.plot(np.array(self.svea_states)[:, 4] - self.svea_states[0][4], np.full(np.shape(self.svea_states)[0], Tm), '-r', linewidth=1)
-            ax_rmi.plot(np.array(rmi_plot)[:, 0], np.array(rmi_plot)[:, 1], f'-{colors[key]}o', markersize=2, linewidth=1)
+            ax_rmi.plot(np.array(rmi_plot)[:, 0], np.array(rmi_plot)[:, 1], '-co', markersize=2, linewidth=1)
         ax_rmi.set_xlim(0, int(self.svea_states[-1][4] - self.svea_states[0][4]) + 1)
         ax_rmi.set_ylim(0, 7)
         ax_rmi.set_xlabel('t [s]')
@@ -239,7 +238,7 @@ class SocialMeasurement(object):
             sii_plot.append([i, np.max(sii)])
             sii = []
             ax_sii.plot([*range(len(self.pedestrian_states[key]))], np.full(np.shape(self.svea_states)[0], Tp), '-r', linewidth=1)
-            ax_sii.plot(np.array(sii_plot)[:, 0], np.array(sii_plot)[:, 1], f'-{colors[key]}o', markersize=2, linewidth=1)
+            ax_sii.plot(np.array(sii_plot)[:, 0], np.array(sii_plot)[:, 1], '-co', markersize=2, linewidth=1)
         ax_sii.set_xlim(0, len(self.pedestrian_states[key]))
         ax_sii.set_ylim(0, 1.5)
         ax_sii.set_xlabel('Path Point')
@@ -267,7 +266,7 @@ class SocialMeasurement(object):
             rmi_plot.append([i, np.max(rmi)])
             rmi = []
             ax_rmi.plot([*range(len(self.pedestrian_states[key]))], np.full(np.shape(self.svea_states)[0], Tm), '-r', linewidth=1)
-            ax_rmi.plot(np.array(rmi_plot)[:, 0], np.array(rmi_plot)[:, 1], f'-{colors[key]}o', markersize=2, linewidth=1)
+            ax_rmi.plot(np.array(rmi_plot)[:, 0], np.array(rmi_plot)[:, 1], '-co', markersize=2, linewidth=1)
         ax_rmi.set_xlim(0, len(self.pedestrian_states[key]))
         ax_rmi.set_ylim(0, 7)
         ax_rmi.set_xlabel('Path Point')
@@ -281,8 +280,8 @@ if __name__ == '__main__':
     m.read_pedestrian_poses()
     #m.plot_traj()
     m.plot_psit()
-    #m.plot_sii_over_time()
-    #m.plot_rmi_over_time()
+    m.plot_sii_over_time()
+    m.plot_rmi_over_time()
     m.plot_sii()
     m.plot_rmi()
     input("Press Enter to continue...")
