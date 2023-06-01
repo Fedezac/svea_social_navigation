@@ -302,7 +302,7 @@ Visualization Manager:
       Marker Topic: /static_unmapped_obstacles
       Name: Static Unmapped Obstacles
       Namespaces:
-        {}
+        static_unmapped_obstacle_simulator: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -462,7 +462,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 21.345985412597656
+      Distance: 19.007360458374023
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -470,17 +470,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 4.3271918296813965
-        Y: 4.977677345275879
-        Z: -3.491589069366455
+        X: 2.9708712100982666
+        Y: 8.086130142211914
+        Z: -5.767122745513916
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.2347965240478516
+      Pitch: 1.0847961902618408
       Target Frame: base_link
-      Yaw: 4.094962120056152
+      Yaw: 4.609955310821533
     Saved: ~
 Window Geometry:
   Displays:
