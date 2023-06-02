@@ -4815,7 +4815,11 @@
   <waypoint id="waypoint_id_1" x="4" y="6.6" r="0.5"/>
   <waypoint id="waypoint_id_2" x="8" y="4.9" r="0.5"/>
   <waypoint id="waypoint_id_3" x="8" y="3" r="0.5"/>
-  <agent x="3" y="7.7" n="1" dx="0.1" dy="0.1" type="1">
+  <!-- Robot agent -->
+  <agent x="0" y="0" n="1" dx="0" dy="0" type="2">
+  </agent>
+  <!-- Pedestrian agents -->
+  <agent x="3" y="7.7" n="1" dx="0.1" dy="0.1" type="0">
     <addwaypoint id="waypoint_id_1"/>
     <addwaypoint id="waypoint_id_2"/>
     <addwaypoint id="waypoint_id_3"/>

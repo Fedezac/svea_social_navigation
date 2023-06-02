@@ -18,7 +18,6 @@ class SocialMeasurement(object):
         Init method for the SocialMeasurement class
         """
         # Clear both files
-        # TODO: uncomment when running experiments (to erase debug file)
         if write:
             open(self.SVEA_FILE, 'w').close()
             open(self.PEDESTRIAN_FILE, 'w').close()

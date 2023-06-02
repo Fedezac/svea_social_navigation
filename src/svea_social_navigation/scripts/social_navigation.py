@@ -202,7 +202,7 @@ class SocialNavigation(object):
             N=self.WINDOW_LEN,
             Q=[20, 20, 50, .1],
             R=[1, .5],
-            S=[120, 150, 300],
+            S=[120, 150, 150],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
@@ -250,7 +250,6 @@ class SocialNavigation(object):
         #b_spline_path = np.array(self.pi.get_social_waypoints(interpolate=True))
         # Create array for MPC reference
         self.path = np.zeros((np.shape(b_spline_path)[0], 4))
-        print(self.path)
         self.path[:, 0] = b_spline_path[:, 0]
         self.path[:, 1] = b_spline_path[:, 1]
         self.path[:, 2] = [self.STRAIGHT_SPEED if abs(curv) < 1e-2 else self.TURN_SPEED for curv in b_spline_path[:, 3]]
