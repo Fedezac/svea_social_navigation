@@ -16,7 +16,7 @@ from svea_mocap.mocap import MotionCaptureInterface
 from svea.data import RVIZPathHandler
 from svea_planners.astar import AStarPlanner, AStarWorld
 from svea_planners.planner_interface import PlannerInterface
-from svea_planners.path_smoother import BSpline
+from svea_planners.bspline_smoother import BSpline
 from svea_social_navigation.apf import ArtificialPotentialFieldHelper
 from svea_social_navigation.static_unmapped_obstacle_simulator import StaticUnmappedObstacleSimulator
 from svea_social_navigation.dynamic_obstacle_simulator import DynamicObstacleSimulator
