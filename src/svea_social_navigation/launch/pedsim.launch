@@ -7,6 +7,8 @@
   <arg name="scene_file" default="scene"/>
   <arg name="simulation_factor" default="1.0"/> <!-- Speed up -->
   <arg name="update_rate" default="25.0"/> <!-- Hz -->
+  <arg name="robot_mode" default="0"/>
+  <arg name="max_robot_speed" default="1.7"/>
   
   <!-- Simulator -->
   <include file="$(find pedsim_simulator)/launch/simulator.launch">
@@ -20,6 +22,8 @@
     <arg name="enable_groups" value="true"/>
     <arg name="robot_base_frame_id" value="svea2/base_link"/>
     <arg name="frame_id" value="map"/>
+    <arg name="robot_mode" value="$(arg robot_mode)"/>
+    <arg name="max_robot_speed" default="$(arg max_robot_speed)"/>
   </include>
 
   <!-- Visualizer -->
