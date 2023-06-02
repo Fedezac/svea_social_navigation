@@ -302,7 +302,7 @@ Visualization Manager:
       Marker Topic: /static_unmapped_obstacles
       Name: Static Unmapped Obstacles
       Namespaces:
-        static_unmapped_obstacle_simulator: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -329,8 +329,17 @@ Visualization Manager:
           Name: Pedestrian Waypoints
           Namespaces:
             waypoint_id_1: true
+            waypoint_id_10: true
+            waypoint_id_11: true
+            waypoint_id_12: true
             waypoint_id_2: true
             waypoint_id_3: true
+            waypoint_id_4: true
+            waypoint_id_5: true
+            waypoint_id_6: true
+            waypoint_id_7: true
+            waypoint_id_8: true
+            waypoint_id_9: true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -462,7 +471,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 19.01211166381836
+      Distance: 25.953401565551758
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -470,17 +479,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 2.836981773376465
-        Y: 8.588123321533203
-        Z: -6.48335075378418
+        X: 6.481989860534668
+        Y: 17.05562400817871
+        Z: -3.032703399658203
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.0197962522506714
+      Pitch: 1.099796175956726
       Target Frame: base_link
-      Yaw: 4.644961357116699
+      Yaw: 3.859968662261963
     Saved: ~
 Window Geometry:
   Displays:
