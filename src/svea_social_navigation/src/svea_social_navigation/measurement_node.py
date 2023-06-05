@@ -8,6 +8,7 @@ import matplotlib.patches as mpatches
 class SocialMeasurement(object):
     SVEA_FILE = '/home/federico/universita/thesis_ws/ws/src/svea_social_navigation/data/svea_states.txt'
     PEDESTRIAN_FILE = '/home/federico/universita/thesis_ws/ws/src/svea_social_navigation/data/pedestrian_states.txt'
+    GLOBAL_PATH_FILE = '/home/federico/universita/thesis_ws/ws/src/svea_social_navigation/data/a_priori_path.txt'
     # Proxemic zones radii in meters
     INTIMATE_RADIUS = 0.4
     PERSONAL_RADIUS = 1.0
@@ -21,9 +22,11 @@ class SocialMeasurement(object):
         if write:
             open(self.SVEA_FILE, 'w').close()
             open(self.PEDESTRIAN_FILE, 'w').close()
+            open(self.GLOBAL_PATH_FILE, 'w').close()
         # Open files in append plus read mode
         self.svea_file = open(self.SVEA_FILE, 'a+')
         self.pedestrian_file = open(self.PEDESTRIAN_FILE, 'a+')
+        self.global_path_file = open(self.GLOBAL_PATH_FILE, 'a+')
 
     def add_robot_pose(self, state, timestamp):
         """
@@ -48,6 +51,18 @@ class SocialMeasurement(object):
         np.set_printoptions(linewidth=np.inf)
         self.pedestrian_file.write(str({pedestrian_id: ped_state}) + '\n')
 
+    def add_global_path(self, path):
+        """
+        Method to write global path on log file
+
+        :param path: global paht (x, y, reference speed, heading)
+        :type path: list[tuple[float]]
+        """
+        np.set_printoptions(threshold=np.inf)
+        np.set_printoptions(linewidth=np.inf)
+        for p in path:
+            self.global_path_file.write(str(p) + '\n')
+
     def close_files(self):
         """
         Method used to close open log files
@@ -55,6 +70,7 @@ class SocialMeasurement(object):
         print('Closing log files')
         self.svea_file.close()
         self.pedestrian_file.close()
+        self.global_path_file.close()
 
     def read_robot_poses(self):
         """
@@ -90,6 +106,20 @@ class SocialMeasurement(object):
             old_states = self.pedestrian_states.get(int(array[0]))
             old_states.append(list(array[1:]))
             self.pedestrian_states.update({int(array[0]): old_states})
+
+    def read_global_path(self):
+        """
+        Method to read global path points from log file 
+        """
+        # Array for global path
+        self.global_path = []
+        # Reset file cursor to first char
+        self.global_path_file.seek(0)
+        # Read all lines from file
+        lines = self.global_path_file.readlines()
+        for l in lines:
+            # Convert line into list of doubles and append it to the global path array
+            self.global_path.append([eval(num) for num in re.findall("[+-]? *(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", l)])
 
     def plot_traj(self):
         """
@@ -266,13 +296,68 @@ class SocialMeasurement(object):
         ax_rmi.set_ylabel('RMI')
         ax_rmi.legend(['Tm Psychological Threshold', 'RMI'], fontsize='medium')
 
+    def plot_travel_time(self):
+        """
+        Method for plotting travel times of a priori path (i.e. global path) versus actual travel time
+        """
+        plt.ion()
+        fig_time, ax_time = plt.subplots(num='Travel Time')
+        plt.xticks([])
+        fig_time.set_dpi(200)
+        priori_time = 0
+        actual_time = 0
+        np_global_path = np.array(self.global_path)
+        np_svea_states = np.array(self.svea_states)
+        for i, pose in enumerate(np_global_path):
+            if i == 0:
+                continue
+            dist = np.linalg.norm(pose[0:2] - np_global_path[i - 1, 0:2])
+            priori_time += dist / pose[2]
+        actual_time += np_svea_states[-1, -1] - np_svea_states[0, -1]
+        ax_time.bar_label(ax_time.bar(0, priori_time, color='r'))
+        ax_time.bar_label(ax_time.bar(1, actual_time, color='c'))
+        ax_time.autoscale()
+        ax_time.set_ylabel('Time [sec]')      
+        ax_time.legend(['Global Path Time', 'Actual Path Time'], fontsize='medium')
+
+    def plot_path_length(self):
+        """
+        Method for plotting path length of a priori path (i.e. global path) versur actual path length
+        """
+        plt.ion()
+        fig_length, ax_length = plt.subplots(num='Path Length')
+        plt.xticks([])
+        fig_length.set_dpi(200)
+        priori_length = 0
+        actual_length = 0
+        np_global_path = np.array(self.global_path)
+        np_svea_states = np.array(self.svea_states)
+        for i, pose in enumerate(np_global_path):
+            if i == 0:
+                continue
+            dist = np.linalg.norm(pose[0:2] - np_global_path[i - 1, 0:2])
+            priori_length += dist
+        for i, pose in enumerate(np_svea_states):
+            if i == 0:
+                continue
+            dist = np.linalg.norm(pose[0:2] - np_svea_states[i - 1, 0:2])
+            actual_length += dist
+        ax_length.bar_label(ax_length.bar(0, priori_length, color='r'))
+        ax_length.bar_label(ax_length.bar(1, actual_length, color='c'))
+        ax_length.autoscale()
+        ax_length.set_ylabel('Path Length [m]')      
+        ax_length.legend(['Global Path Length', 'Actual Path Length'], fontsize='medium')
+
 
 if __name__ == '__main__':
     m = SocialMeasurement(write=False)
     m.read_robot_poses()
     m.read_pedestrian_poses()
+    m.read_global_path()
     m.plot_psit()
     m.plot_sii()
     m.plot_rmi()
+    m.plot_travel_time()
+    m.plot_path_length()
     m.close_files()
     input("Press Enter to continue...")

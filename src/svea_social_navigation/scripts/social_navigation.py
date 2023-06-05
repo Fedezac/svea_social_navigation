@@ -101,8 +101,8 @@ class SocialNavigation(object):
     DELTA_TIME = 0.1
     DELTA_TIME_REAL = 0.3
     GOAL_THRESH = 0.2
-    STRAIGHT_SPEED = 0.3
-    TURN_SPEED = 0.2
+    STRAIGHT_SPEED = 0.7
+    TURN_SPEED = 0.5
     MAX_N_STATIC_OBSTACLES = 10
     MAX_N_DYNAMIC_OBSTACLES = 10
     MAX_N_PEDESTRIANS = 10
@@ -265,6 +265,9 @@ class SocialNavigation(object):
             self.pi.publish_internal_representation()
         # Publish global path on rviz
         self.pi.publish_path()
+        # If measurements are on, save global path
+        if self.MEASURE:
+            self.measurements.add_global_path(self.path)
             
     def _visualize_data(self, x_pred, y_pred, velocity, steering):
         # Visualize predicted local tracectory
