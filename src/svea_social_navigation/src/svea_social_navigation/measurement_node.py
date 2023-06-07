@@ -14,10 +14,13 @@ class SocialMeasurement(object):
     PERSONAL_RADIUS = 1.0
     SOCIAL_RADIUS = 4.0
 
-    def __init__(self, write):
+    def __init__(self, write, pedsim=False):
         """
         Init method for the SocialMeasurement class
         """
+        if pedsim:
+            self.SVEA_FILE = '/home/federico/universita/thesis_ws/ws/src/svea_social_navigation/data/robot_states_pedsim.txt'
+            self.PEDESTRIAN_FILE = '/home/federico/universita/thesis_ws/ws/src/svea_social_navigation/data/pedestrian_states_pedsim.txt'
         # Clear both files
         if write:
             open(self.SVEA_FILE, 'w').close()
