@@ -18,6 +18,7 @@ class SocialMeasurement(object):
         """
         Init method for the SocialMeasurement class
         """
+        self.pedsim = pedsim
         if pedsim:
             self.SVEA_FILE = '/home/federico/universita/thesis_ws/ws/src/svea_social_navigation/data/robot_states_pedsim.txt'
             self.PEDESTRIAN_FILE = '/home/federico/universita/thesis_ws/ws/src/svea_social_navigation/data/pedestrian_states_pedsim.txt'
@@ -114,6 +115,8 @@ class SocialMeasurement(object):
         """
         Method to read global path points from log file 
         """
+        if self.pedsim:
+            return
         # Array for global path
         self.global_path = []
         # Reset file cursor to first char
@@ -309,19 +312,24 @@ class SocialMeasurement(object):
         fig_time.set_dpi(200)
         priori_time = 0
         actual_time = 0
-        np_global_path = np.array(self.global_path)
         np_svea_states = np.array(self.svea_states)
-        for i, pose in enumerate(np_global_path):
-            if i == 0:
-                continue
-            dist = np.linalg.norm(pose[0:2] - np_global_path[i - 1, 0:2])
-            priori_time += dist / pose[2]
         actual_time += np_svea_states[-1, -1] - np_svea_states[0, -1]
-        ax_time.bar_label(ax_time.bar(0, priori_time, color='r'))
-        ax_time.bar_label(ax_time.bar(1, actual_time, color='c'))
+        if not self.pedsim:
+            np_global_path = np.array(self.global_path)
+            for i, pose in enumerate(np_global_path):
+                if i == 0:
+                    continue
+                dist = np.linalg.norm(pose[0:2] - np_global_path[i - 1, 0:2])
+                priori_time += dist / pose[2]
+            ax_time.bar_label(ax_time.bar(0, priori_time, color='r'))
+            ax_time.bar_label(ax_time.bar(1, actual_time, color='c'))
+            ax_time.legend(['Global Path Time', 'Actual Path Time'], fontsize='medium')
+        else:
+            ax_time.bar_label(ax_time.bar(1, actual_time, color='c'))
+            ax_time.legend(['Actual Path Time'], fontsize='medium')
         ax_time.autoscale()
         ax_time.set_ylabel('Time [sec]')      
-        ax_time.legend(['Global Path Time', 'Actual Path Time'], fontsize='medium')
+        
 
     def plot_path_length(self):
         """
@@ -333,27 +341,34 @@ class SocialMeasurement(object):
         fig_length.set_dpi(200)
         priori_length = 0
         actual_length = 0
-        np_global_path = np.array(self.global_path)
         np_svea_states = np.array(self.svea_states)
-        for i, pose in enumerate(np_global_path):
-            if i == 0:
-                continue
-            dist = np.linalg.norm(pose[0:2] - np_global_path[i - 1, 0:2])
-            priori_length += dist
         for i, pose in enumerate(np_svea_states):
             if i == 0:
                 continue
             dist = np.linalg.norm(pose[0:2] - np_svea_states[i - 1, 0:2])
             actual_length += dist
-        ax_length.bar_label(ax_length.bar(0, priori_length, color='r'))
-        ax_length.bar_label(ax_length.bar(1, actual_length, color='c'))
+        if not self.pedsim:
+            np_global_path = np.array(self.global_path)
+            for i, pose in enumerate(np_global_path):
+                if i == 0:
+                    continue
+                dist = np.linalg.norm(pose[0:2] - np_global_path[i - 1, 0:2])
+                priori_length += dist
+            ax_length.bar_label(ax_length.bar(0, priori_length, color='r'))
+            ax_length.bar_label(ax_length.bar(1, actual_length, color='c'))
+            ax_length.legend(['Global Path Length', 'Actual Path Length'], fontsize='medium')
+        else:
+            ax_length.bar_label(ax_length.bar(1, actual_length, color='c'))
+            ax_length.legend(['Actual Path Length'], fontsize='medium')
         ax_length.autoscale()
         ax_length.set_ylabel('Path Length [m]')      
-        ax_length.legend(['Global Path Length', 'Actual Path Length'], fontsize='medium')
+        
 
 
 if __name__ == '__main__':
-    m = SocialMeasurement(write=False)
+    pedsim = False
+    print(f'Pedsim Mode: {pedsim}')
+    m = SocialMeasurement(write=False, pedsim=pedsim)
     m.read_robot_poses()
     m.read_pedestrian_poses()
     m.read_global_path()
