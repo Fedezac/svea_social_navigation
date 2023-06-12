@@ -6,8 +6,8 @@ from pedsim_msgs.msg import AgentStates
 from svea_social_navigation.measurement_node import SocialMeasurement
 from tf.transformations import euler_from_quaternion
 
-goal_x = 2.5
-goal_y = 10.0
+goal_x = 13.0
+goal_y = 20.0
 
 measurements = SocialMeasurement(write=True, pedsim=True)
 

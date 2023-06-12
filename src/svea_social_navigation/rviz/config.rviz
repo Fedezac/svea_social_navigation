@@ -302,7 +302,7 @@ Visualization Manager:
       Marker Topic: /static_unmapped_obstacles
       Name: Static Unmapped Obstacles
       Namespaces:
-        {}
+        static_unmapped_obstacle_simulator: true
       Queue Size: 100
       Value: true
     - Class: rviz/MarkerArray
@@ -328,7 +328,28 @@ Visualization Manager:
           Marker Topic: /pedsim_visualizer/waypoints
           Name: Pedestrian Waypoints
           Namespaces:
-            {}
+            waypoint_id_1: true
+            waypoint_id_10: true
+            waypoint_id_11: true
+            waypoint_id_12: true
+            waypoint_id_13: true
+            waypoint_id_14: true
+            waypoint_id_15: true
+            waypoint_id_16: true
+            waypoint_id_17: true
+            waypoint_id_18: true
+            waypoint_id_19: true
+            waypoint_id_2: true
+            waypoint_id_20: true
+            waypoint_id_21: true
+            waypoint_id_22: true
+            waypoint_id_3: true
+            waypoint_id_4: true
+            waypoint_id_5: true
+            waypoint_id_6: true
+            waypoint_id_7: true
+            waypoint_id_8: true
+            waypoint_id_9: true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -460,7 +481,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 23.790218353271484
+      Distance: 25.883190155029297
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -468,17 +489,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 5.745545864105225
-        Y: 15.255846977233887
-        Z: -1.9137992858886719
+        X: 10.092033386230469
+        Y: 12.275259971618652
+        Z: -3.32546329498291
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.0197957754135132
+      Pitch: 1.1097967624664307
       Target Frame: base_link
-      Yaw: 3.8649790287017822
+      Yaw: 4.5599751472473145
     Saved: ~
 Window Geometry:
   Displays:
