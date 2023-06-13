@@ -311,9 +311,8 @@ class SocialMeasurement(object):
         plt.xticks([])
         fig_time.set_dpi(200)
         priori_time = 0
-        actual_time = 0
         np_svea_states = np.array(self.svea_states)
-        actual_time += np_svea_states[-1, -1] - np_svea_states[0, -1]
+        actual_time = np_svea_states[-1, -1] - np_svea_states[0, -1]
         if not self.pedsim:
             np_global_path = np.array(self.global_path)
             for i, pose in enumerate(np_global_path):
