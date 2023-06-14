@@ -4,6 +4,10 @@ from svea.models.generic_mpc import GenericModel
 
 class MPC(object):
     ROBOT_RADIUS = 0.2
+    DELTA_TIME = 0.1
+    A = 3.5
+    B = 1.02
+    LAMBDA = 1
     def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_static_obstacles, n_dynamic_obstacles, n_pedestrians, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
         Init method for MPC class
@@ -102,8 +106,8 @@ class MPC(object):
         """
         # Predict dynamic obs trajectory using linear motion model and estimated v, theta (dt fixed to 0.1)
         if k != 0:
-            x = obs[0] + obs[2] * casadi.cos(obs[3]) * 0.1
-            y = obs[1] + obs[2] * casadi.sin(obs[3]) * 0.1
+            x = obs[0] + obs[2] * casadi.cos(obs[3]) * self.DELTA_TIME
+            y = obs[1] + obs[2] * casadi.sin(obs[3]) * self.DELTA_TIME
         else:
             x = obs[0]
             y = obs[1]
@@ -196,16 +200,43 @@ class MPC(object):
             self.F_r_dynamic.append(rep_force_dynamic)
             self.cost += self.S[1, 1] * self.F_r_dynamic[k]
 
+            sfm_x = 0
+            sfm_y = 0
             sfm = 0
+            x_y = casadi.MX(2, 1)
             e_p = casadi.MX(2, 1)
+            v_ego = casadi.MX(2, 1)
+            v_ped = casadi.MX(2, 1)
             for i in range(self.n_pedestrians):
-                x, y = self.predict_position(self.pedestrians_pos[:, i], k) 
+                x_y[0], x_y[1] = self.predict_position(self.pedestrians_pos[:, i], k) 
+                v_ego[0] = self.x[0, k] + self.x[2, k] * casadi.cos(self.x[3, k])
+                v_ego[1] = self.x[1, k] + self.x[2, k] * casadi.sin(self.x[3, k])
+                v_ped[0] = x_y[0] + self.pedestrians_pos[2, i] * casadi.cos(self.pedestrians_pos[3, i])
+                v_ped[1] = x_y[1] + self.pedestrians_pos[2, i] * casadi.sin(self.pedestrians_pos[3, i])
+                d_ego_p = self.x[0:2, k] - x_y
+                n_ego_p = d_ego_p / casadi.norm_2(d_ego_p)
                 e_p[0] = self.pedestrians_pos[2, i] * casadi.cos(self.pedestrians_pos[3, i])
                 e_p[1] = self.pedestrians_pos[2, i] * casadi.sin(self.pedestrians_pos[3, i])
-                n =  (self.x[0:2, k] - self.pedestrians_pos[0:2, i]) / casadi.norm_2(self.x[0:2, k] - self.pedestrians_pos[0:2, i])
+                y_ego_p = self.pedestrians_pos[2, i] * self.DELTA_TIME * e_p
+                cos_phi_ego_p = casadi.dot(e_p, n_ego_p)
+                omega = self.LAMBDA + ((1 - self.LAMBDA) * ((1 + cos_phi_ego_p) / 2))
+                b_ego_p = casadi.sqrt((casadi.norm_2(d_ego_p) + casadi.norm_2(d_ego_p - ((v_ped - v_ego) * self.DELTA_TIME))) ** 2 - casadi.norm_2((v_ped - v_ego) * self.DELTA_TIME) ** 2) / 2
+                g_ego_p = self.A * casadi.exp(-b_ego_p / self.B) * ((casadi.norm_2(d_ego_p) + casadi.norm_2(d_ego_p - y_ego_p)) / (2 * b_ego_p)) * 0.5 * ((d_ego_p / casadi.norm_2(d_ego_p) + ((d_ego_p - y_ego_p) / casadi.norm_2(d_ego_p - y_ego_p))))
+                sfm_x += (omega * g_ego_p[0]) / (k + 1)
+                sfm_y += (omega * g_ego_p[1]) / (k + 1) 
+                # Narrow corridor very similar, corridor very similar, square a bit worse (maybe some tuning is needed).
+                # Slowest in travel time
+
+                x_y[0], x_y[1] = self.predict_position(self.pedestrians_pos[:, i], k)
+                e_p[0] = self.pedestrians_pos[2, i] * casadi.cos(self.pedestrians_pos[3, i])
+                e_p[1] = self.pedestrians_pos[2, i] * casadi.sin(self.pedestrians_pos[3, i])
+                n =  (self.x[0:2, k] - x_y) / casadi.norm_2(self.x[0:2, k] - x_y)
                 omega = 0.59 + (1 - 0.59) * ((1 + casadi.dot(-n, e_p)) / 2)
-                sfm += (2.66 * casadi.exp(0.65 - casadi.norm_2(self.x[0:2, k] - self.pedestrians_pos[0:2, i]) / 0.79) * omega) / (k + 1)
-            self.F_r_sfm.append(sfm)
+                sfm += (2.66 * casadi.exp(0.65 - casadi.norm_2(self.x[0:2, k] - x_y) / 0.79) * omega) / (k + 1)
+                # Using pedestrian preditcted positions: square worse, corridor worse, narrow corridor bit worse.
+                # Overall fastest in travel time. To go back to old version, avoid using pedestrian predicted positions
+            self.F_r_sfm.append(casadi.sqrt((sfm_x ** 2 + sfm_y ** 2) + 0.000001))
+            #self.F_r_sfm.append(sfm)
             self.cost += self.S[2, 2] * self.F_r_sfm[k] 
 
             if k < self.N:
@@ -265,6 +296,7 @@ class MPC(object):
                 print(f'Repulsive force static: {self.opti.debug.value(r_force_static)}')
                 print(f'Repulsive force dynamic: {self.opti.debug.value(r_force_dynamic)}')
                 print(f'SFM: {self.opti.debug.value(r_force_sfm)}')
+            print(f'DEBUG: {self.opti.debug.value(self.test)}')
             self.opti.debug.show_infeasibilities()
             #self.opti.debug.x_describe()
             #self.opti.debug.g_describe()
@@ -281,7 +313,6 @@ class MPC(object):
         #for r_force in self.F_r_sfm:
         #    print(f'MPC Repulsive sfmc: {self.opti.debug.value(r_force)}')
         print(f'MPC Cost: {self.opti.debug.value(self.cost)}')
-        #print(f'Static obs: {self.opti.debug.value(self.static_unmapped_obs_position)}')
         # Get first control generated (not predicted ones)
         u_optimal = np.expand_dims(self.opti.value(self.u[:, 0]), axis=1)
         # Get new predicted position

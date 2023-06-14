@@ -35,8 +35,8 @@
         <param name="is_sim" value="$(arg is_sim)"/>
         <param name="remote_rviz" value="$(arg remote_rviz)" />
         <rosparam>
-            state: [2, 0.9, 1.57, 0] # initial state (x, y, yaw)
-            goal: [2, 10]
+            state: [2.5, 0.9, 1.57, 0] # initial state (x, y, yaw)
+            goal: [2.5, 10]
             static_unmapped_obstacles: [[3.4, 5]]
             dynamic_obstacles: [] # (x, y, v, theta, x_lb, x_ub, y_lb, y_ub)
             is_pedsim: True
