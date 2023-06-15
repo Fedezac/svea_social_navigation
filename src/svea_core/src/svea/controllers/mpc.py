@@ -5,7 +5,7 @@ from svea.models.generic_mpc import GenericModel
 class MPC(object):
     ROBOT_RADIUS = 0.2
     DELTA_TIME = 0.1
-    A = 3.5
+    A = 3.7
     B = 1.02
     LAMBDA = 1
     def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_static_obstacles, n_dynamic_obstacles, n_pedestrians, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
@@ -227,12 +227,12 @@ class MPC(object):
                 # Narrow corridor very similar, corridor very similar, square a bit worse (maybe some tuning is needed).
                 # Slowest in travel time
 
-                x_y[0], x_y[1] = self.predict_position(self.pedestrians_pos[:, i], k)
-                e_p[0] = self.pedestrians_pos[2, i] * casadi.cos(self.pedestrians_pos[3, i])
-                e_p[1] = self.pedestrians_pos[2, i] * casadi.sin(self.pedestrians_pos[3, i])
-                n =  (self.x[0:2, k] - x_y) / casadi.norm_2(self.x[0:2, k] - x_y)
-                omega = 0.59 + (1 - 0.59) * ((1 + casadi.dot(-n, e_p)) / 2)
-                sfm += (2.66 * casadi.exp(0.65 - casadi.norm_2(self.x[0:2, k] - x_y) / 0.79) * omega) / (k + 1)
+                #x_y[0], x_y[1] = self.predict_position(self.pedestrians_pos[:, i], k)
+                #e_p[0] = self.pedestrians_pos[2, i] * casadi.cos(self.pedestrians_pos[3, i])
+                #e_p[1] = self.pedestrians_pos[2, i] * casadi.sin(self.pedestrians_pos[3, i])
+                #n =  (self.x[0:2, k] - self.pedestrians_pos[0:2, i]) / casadi.norm_2(self.x[0:2, k] - self.pedestrians_pos[0:2, i])
+                #omega = 0.59 + (1 - 0.59) * ((1 + casadi.dot(-n, e_p)) / 2)
+                #sfm += (2.66 * casadi.exp(0.65 - casadi.norm_2(self.x[0:2, k] - self.pedestrians_pos[0:2, i]) / 0.79) * omega) / (k + 1)
                 # Using pedestrian preditcted positions: square worse, corridor worse, narrow corridor bit worse.
                 # Overall fastest in travel time. To go back to old version, avoid using pedestrian predicted positions
             self.F_r_sfm.append(casadi.sqrt((sfm_x ** 2 + sfm_y ** 2) + 0.000001))
