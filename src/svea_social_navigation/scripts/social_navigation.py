@@ -202,7 +202,7 @@ class SocialNavigation(object):
             N=self.WINDOW_LEN,
             Q=[20, 20, 50, .1],
             R=[1, .5],
-            S=[120, 150, 50],
+            S=[120, 150, 200],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
