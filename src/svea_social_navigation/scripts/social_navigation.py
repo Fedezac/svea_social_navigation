@@ -5,7 +5,7 @@ import rospy
 from copy import deepcopy
 
 # SVEA imports
-from svea.controllers.mpc import MPC
+from svea.controllers.social_mpc import SMPC
 from svea.sensors import Lidar
 from svea.models.bicycle_mpc import BicycleModel
 from svea.models.bicycle import SimpleBicycleModel
@@ -197,7 +197,7 @@ class SocialNavigation(object):
         x_b = np.array([np.inf, np.inf, 0.7, np.inf])
         u_b = np.array([0.5, np.deg2rad(40)])
         # Create MPC controller object
-        self.controller = MPC(
+        self.controller = SMPC(
             self.model,
             N=self.WINDOW_LEN,
             Q=[20, 20, 50, .1],

@@ -2,7 +2,7 @@ import numpy as np
 import casadi
 from svea.models.generic_mpc import GenericModel
 
-class MPC(object):
+class SMPC(object):
     ROBOT_RADIUS = 0.2
     DELTA_TIME = 0.1
     A = 3.7
