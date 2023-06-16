@@ -224,8 +224,6 @@ class SMPC(object):
                 g_ego_p = self.A * casadi.exp(-b_ego_p / self.B) * ((casadi.norm_2(d_ego_p) + casadi.norm_2(d_ego_p - y_ego_p)) / (2 * b_ego_p)) * 0.5 * ((d_ego_p / casadi.norm_2(d_ego_p) + ((d_ego_p - y_ego_p) / casadi.norm_2(d_ego_p - y_ego_p))))
                 sfm_x += (omega * g_ego_p[0]) / (k + 1)
                 sfm_y += (omega * g_ego_p[1]) / (k + 1) 
-                # Narrow corridor very similar, corridor very similar, square a bit worse (maybe some tuning is needed).
-                # Slowest in travel time
 
                 #x_y[0], x_y[1] = self.predict_position(self.pedestrians_pos[:, i], k)
                 #e_p[0] = self.pedestrians_pos[2, i] * casadi.cos(self.pedestrians_pos[3, i])

@@ -196,7 +196,7 @@ class SocialNavigation(object):
         # TODO: maybe avoid going backwards (or penalized it very much)
         x_b = np.array([np.inf, np.inf, 0.7, np.inf])
         u_b = np.array([0.5, np.deg2rad(40)])
-        # Create MPC controller object
+        # Create MPC controller object 
         self.controller = SMPC(
             self.model,
             N=self.WINDOW_LEN,
