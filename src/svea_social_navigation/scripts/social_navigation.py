@@ -456,7 +456,8 @@ class SocialNavigation(object):
 
         # Get local static unmapped obstacles, local dynamic obstacles, local pedestrians
         local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc = self.get_local_agents()
-        # Compute weight scaling factor, given minimum distance from obstacle (of whatever type)
+        # Compute weight scaling factor, given minimum distance from obstacle (of whatever type, TODO: different
+        # sigmoids for different types of obstacles)
         Q = copy(self.Q)
         Q[0:2] *= increasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_TRAJ, self.Y_MAX_TRAJ, np.min([np.linalg.norm(np.array([self.x0[0:2]]).T - local_static_mpc[0:2, :], axis=0), np.linalg.norm(np.array([self.x0[0:2]]).T - local_dynamic_mpc[0:2, :], axis=0), np.linalg.norm(np.array([self.x0[0:2]]).T - local_pedestrian_mpc[0:2, :], axis=0)]))
         S = self.S * [decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_APF, self.Y_MAX_APF, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_static_mpc[0:2, :], axis=0))), 
