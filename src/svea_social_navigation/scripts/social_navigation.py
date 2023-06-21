@@ -2,7 +2,7 @@
 # Plain python imports
 import numpy as np
 import rospy
-from copy import deepcopy
+from copy import deepcopy, copy
 
 # SVEA imports
 from svea.controllers.social_mpc import SMPC
@@ -96,6 +96,58 @@ def lists_to_pose_stampeds(x_list, y_list, yaw_list=None, t_list=None):
         poses.append(curr_pose)
     return poses
 
+def increasing_sigmoid(xmin, xmax, ymin, ymax, x):
+    """
+    Decreasing sigmoid function for weight tuning
+
+    :param xmin: minimum x value
+    :type xmin: float
+    :param xmax: maximum x value 
+    :type xmax: float
+    :param ymin: minimum y value
+    :type ymin: float
+    :param ymax: maximum y value
+    :type ymax: float
+    :param x: input 
+    :type x: float
+    :return: f(x)
+    :rtype: float
+    """
+    if x <= xmin:
+        y = ymin
+    elif x >= xmax:
+        y = ymax
+    else:
+        cosarg = (x - xmin) * np.pi / (xmax - xmin) + np.pi
+        y = (ymax - ymin) * (0.5 * np.cos(cosarg) + 0.5) + ymin
+    return y
+
+def decreasing_sigmoid(xmin, xmax, ymin, ymax, x):
+    """
+    Decreasing sigmoid function for weight tuning
+
+    :param xmin: minimum x value
+    :type xmin: float
+    :param xmax: maximum x value 
+    :type xmax: float
+    :param ymin: minimum y value
+    :type ymin: float
+    :param ymax: maximum y value
+    :type ymax: float
+    :param x: input 
+    :type x: float
+    :return: f(x)
+    :rtype: float
+    """
+    if x <= xmin:
+        y = ymax
+    elif x >= xmax:
+        y = ymin
+    else:
+        cosarg = (x - xmin) * np.pi / (xmax - xmin)
+        y = (ymax - ymin) * (0.5 * np.cos(cosarg) + 0.5) + ymin
+    return y
+
 class SocialNavigation(object):
     WINDOW_LEN = 10
     DELTA_TIME = 0.1
@@ -107,6 +159,16 @@ class SocialNavigation(object):
     MAX_N_DYNAMIC_OBSTACLES = 10
     MAX_N_PEDESTRIANS = 10
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
+    # Parameter for sigmoid weight tuning
+    X_MIN = 1.0
+    X_MAX = 2.85
+    Y_MIN_APF = 1.0
+    Y_MAX_APF = 2.0
+    Y_MIN_TRAJ = 0.5
+    Y_MAX_TRAJ = 1.5
+    # Weights 
+    Q = np.array([20.0, 20.0, 50.0, .1])
+    S = np.array([120.0, 150.0, 200.0])
 
     def __init__(self):
         """
@@ -200,13 +262,12 @@ class SocialNavigation(object):
         self.controller = SMPC(
             self.model,
             N=self.WINDOW_LEN,
-            Q=[20, 20, 50, .1],
             R=[1, .5],
-            S=[120, 150, 200],
             x_lb=-x_b,
             x_ub=x_b,
             u_lb=-u_b,
             u_ub=u_b,
+            n_states = len(self.x0),
             n_static_obstacles=self.MAX_N_STATIC_OBSTACLES,
             n_dynamic_obstacles=self.MAX_N_DYNAMIC_OBSTACLES,
             n_pedestrians=self.MAX_N_PEDESTRIANS,
@@ -395,7 +456,15 @@ class SocialNavigation(object):
 
         # Get local static unmapped obstacles, local dynamic obstacles, local pedestrians
         local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc = self.get_local_agents()
-
+        # Compute weight scaling factor, given minimum distance from obstacle (of whatever type)
+        Q = copy(self.Q)
+        Q[0:2] *= increasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_TRAJ, self.Y_MAX_TRAJ, np.min([np.linalg.norm(np.array([self.x0[0:2]]).T - local_static_mpc[0:2, :], axis=0), np.linalg.norm(np.array([self.x0[0:2]]).T - local_dynamic_mpc[0:2, :], axis=0), np.linalg.norm(np.array([self.x0[0:2]]).T - local_pedestrian_mpc[0:2, :], axis=0)]))
+        S = self.S * [decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_APF, self.Y_MAX_APF, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_static_mpc[0:2, :], axis=0))), 
+                      decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_APF, self.Y_MAX_APF, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_dynamic_mpc[0:2, :], axis=0))),
+                      decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_APF, self.Y_MAX_APF, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_pedestrian_mpc[0:2, :], axis=0)))]
+        print(np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_pedestrian_mpc[0:2, :], axis=0)))
+        print(self.Q, Q)
+        print(self.S, S)
         # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of
         # index out of bounds
         self.waypoint_idx = np.minimum(np.argmin(np.linalg.norm(self.path[:, 0:2] - np.array([self.x0[0], self.x0[1]]), axis=1)) + 1, np.shape(self.path)[0] - 1)
@@ -406,9 +475,9 @@ class SocialNavigation(object):
             last_iteration_points = self.path[self.waypoint_idx:, :]
             while np.shape(last_iteration_points)[0] < self.WINDOW_LEN + 1:
                 last_iteration_points = np.vstack((last_iteration_points, self.path[-1, :]))
-            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc)
+            u, predicted_state = self.controller.get_ctrl(self.x0, last_iteration_points[:, :].T, local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc, Q, S)
         else:
-            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc)
+            u, predicted_state = self.controller.get_ctrl(self.x0, self.path[self.waypoint_idx:self.waypoint_idx + self.WINDOW_LEN + 1, :].T, local_static_mpc, local_dynamic_mpc, local_pedestrian_mpc, Q, S)
 
         # Get optimal velocity (by integrating once the acceleration command and summing it to the current speed) and
         # steering controls

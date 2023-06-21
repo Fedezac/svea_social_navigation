@@ -8,7 +8,7 @@ class SMPC(object):
     A = 3.7
     B = 1.02
     LAMBDA = 1
-    def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_static_obstacles, n_dynamic_obstacles, n_pedestrians, Q, R, S, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
+    def __init__(self, model: GenericModel, x_lb, x_ub, u_lb, u_ub, n_states, n_static_obstacles, n_dynamic_obstacles, n_pedestrians, R, N=7, apply_input_noise=False, apply_state_noise=False, verbose=False):
         """
         Init method for MPC class
 
@@ -47,13 +47,11 @@ class SMPC(object):
         assert self.n_inputs == len(u_lb), f'Number of lower bounds does not correspond to states number, number of states: {self.n_inputs}, number of lower bounds: {len(u_lb)}'
         assert self.n_inputs == len(u_ub), f'Number of lower bounds does not correspond to states number, number of states: {self.n_inputs}, number of lower bounds: {len(u_ub)}'
         # Get matrices of weights for cost function
-        assert self.n_states == np.shape(Q)[0], f'Number of weights in states weights matrix Q does not correspond number of states, number of states: {self.n_states}, number of weights: {np.shape(Q)[0]}'
+        assert self.n_states == n_states, f'Number of weights in states weights matrix Q does not correspond number of states, number of states: {self.n_states}, number of weights: {np.shape(Q)[0]}'
         assert self.n_inputs == np.shape(R)[0], f'Number of weights in inputs weights matrix R does not correspond number of inputs, number of inputs: {self.n_inputs}, number of weights: {np.shape(R)[0]}'
         
-        # Get weights matrices
-        self.Q = casadi.diag(Q)
+        # Get control weights matrix (only one to be constant at all times)
         self.R = casadi.diag(R)
-        self.S = casadi.diag(S)
         # Get number of controls to be predictes 
         self.N = N
         # Get initial state
@@ -167,6 +165,10 @@ class SMPC(object):
         # Rows as the number of state variables to be kept into accout, columns how many timesteps
         self.reference_state = self.opti.parameter(self.n_states, self.N + 1)
         self.initial_state = self.opti.parameter(self.n_states, 1)
+
+        self.S = self.opti.parameter(3, 3)
+        self.Q = self.opti.parameter(self.n_states, self.n_states)
+
         self.static_unmapped_obs_position = self.opti.parameter(2, self.n_static_obstacles)
         self.dynamic_obs_pos = self.opti.parameter(4, self.n_dynamic_obstacles)
         self.pedestrians_pos = self.opti.parameter(4, self.n_pedestrians)
@@ -265,7 +267,7 @@ class SMPC(object):
         # Set initial state as optimizer constraint
         self.opti.subject_to(self.x[:, [0]] == self.initial_state)
 
-    def get_ctrl(self, initial_state, reference_state, static_unmapped_obs_position, dynamic_obs_pos, pedestrian_pos):
+    def get_ctrl(self, initial_state, reference_state, static_unmapped_obs_position, dynamic_obs_pos, pedestrian_pos, Q, S):
         """
         Function to solve optimizer problem and get control from MPC, given initial state and reference state
 
@@ -273,15 +275,29 @@ class SMPC(object):
         :type initial_state: Tuple[float]
         :param reference_state: reference state
         :type reference_state: Tuple[float]
+        :param static_unmapped_obs_position: state of static unmapped obs
+        :type static_unmapped_obs_position: Tuple[float]
+        :param dynamic_obs_pos: state of dynamic obs
+        :type dynamic_obs_pos: Tuple[float]
+        :param pedestrian_pos: state of pedestrians
+        :type pedestrian_pos: Tuple[float]
+        :param Q: reference state weight matrix
+        :type Q: [float]
+        :param S: artificial fields weight matrix
+        :type S: [float]
         :return: _description_
         :rtype: _type_
         """
         # Set optimizer values for both initial state and reference states
         self.opti.set_value(self.initial_state, initial_state)
         self.opti.set_value(self.reference_state, reference_state)
+
         self.opti.set_value(self.static_unmapped_obs_position, static_unmapped_obs_position)
         self.opti.set_value(self.dynamic_obs_pos, dynamic_obs_pos)
         self.opti.set_value(self.pedestrians_pos, pedestrian_pos)
+
+        self.opti.set_value(self.S, casadi.diag(S))
+        self.opti.set_value(self.Q, casadi.diag(Q))
         
         # Solve optimizer problem if it is feasible
         try: 
