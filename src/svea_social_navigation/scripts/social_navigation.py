@@ -465,7 +465,6 @@ class SocialNavigation(object):
         S = self.S * [decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_APF, self.Y_MAX_APF, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_static_mpc[0:2, :], axis=0))), 
                       decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_APF, self.Y_MAX_APF, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_dynamic_mpc[0:2, :], axis=0))),
                       decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_SFM, self.Y_MAX_SFM, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_pedestrian_mpc[0:2, :], axis=0)))]
-        print(np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_pedestrian_mpc[0:2, :], axis=0)))
         print(self.Q, Q)
         print(self.S, S)
         # Get next waypoint index (by computing offset between robot and each point of the path), wrapping it in case of

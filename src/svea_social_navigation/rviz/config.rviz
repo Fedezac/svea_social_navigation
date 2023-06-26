@@ -328,7 +328,9 @@ Visualization Manager:
           Marker Topic: /pedsim_visualizer/waypoints
           Name: Pedestrian Waypoints
           Namespaces:
-            {}
+            waypoint_id_1: true
+            waypoint_id_2: true
+            waypoint_id_3: true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -460,7 +462,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 25.075109481811523
+      Distance: 16.8419189453125
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -468,17 +470,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 13.366671562194824
-        Y: 11.404762268066406
-        Z: -3.140305757522583
+        X: 2.3986451625823975
+        Y: 5.446356773376465
+        Z: -5.818696022033691
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.0497968196868896
+      Pitch: 1.4697965383529663
       Target Frame: base_link
-      Yaw: 4.58997106552124
+      Yaw: 4.684976100921631
     Saved: ~
 Window Geometry:
   Displays:
