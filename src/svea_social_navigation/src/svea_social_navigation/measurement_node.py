@@ -190,9 +190,9 @@ class SocialMeasurement(object):
                 intimate_plot.append([self.svea_states[i][4] - self.svea_states[0][4], intimate_psit])
                 personal_plot.append([self.svea_states[i][4] - self.svea_states[0][4], personal_psit])
                 social_plot.append([self.svea_states[i][4] - self.svea_states[0][4], social_psit])
-                ax_psit.plot(np.array(intimate_plot)[:, 0], np.array(intimate_plot)[:, 1], '-r', linewidth=1)
-                ax_psit.plot(np.array(personal_plot)[:, 0], np.array(personal_plot)[:, 1], '-b', linewidth=1)
-                ax_psit.plot(np.array(social_plot)[:, 0], np.array(social_plot)[:, 1], '-g', linewidth=1)
+            ax_psit.plot(np.array(intimate_plot)[:, 0], np.array(intimate_plot)[:, 1], '-r', linewidth=1)
+            ax_psit.plot(np.array(personal_plot)[:, 0], np.array(personal_plot)[:, 1], '-b', linewidth=1)
+            ax_psit.plot(np.array(social_plot)[:, 0], np.array(social_plot)[:, 1], '-g', linewidth=1)
             ax_psit.autoscale()
             ax_psit.set_xlabel('t [s]')
             ax_psit.set_ylabel('Invasion Time [s]')
@@ -269,12 +269,14 @@ class SocialMeasurement(object):
                 sii.append(np.exp(-(((self.svea_states[i][0] - self.pedestrian_states[key][i][0]) / (np.sqrt(2) * sigma)) ** 2  + ((self.svea_states[i][1] - self.pedestrian_states[key][i][1]) / (np.sqrt(2) * sigma)) ** 2)))
             sii_plot.append([i, np.max(sii)])
             sii = []
-            ax_sii.plot([*range(len(self.pedestrian_states[key]))], np.full(np.shape(self.svea_states)[0], Tp), '-r', linewidth=1)
-            ax_sii.plot(np.array(sii_plot)[:, 0], np.array(sii_plot)[:, 1], '-co', markersize=2, linewidth=1)
+        mean = np.mean(np.array(sii_plot)[:, 1])
+        ax_sii.plot(np.array(sii_plot)[:, 0], np.array(sii_plot)[:, 1], '-co', markersize=2, linewidth=1)
+        ax_sii.plot([*range(len(self.pedestrian_states[key]))], np.full(np.shape(self.svea_states)[0], Tp), '-r', linewidth=1)
+        ax_sii.plot([*range(len(self.pedestrian_states[key]))], np.full(np.shape(self.svea_states)[0], mean), '--m', linewidth=1)
         ax_sii.autoscale()
         ax_sii.set_xlabel('Path Point')
         ax_sii.set_ylabel('SII')
-        ax_sii.legend(['Tp Psychological Threshold', 'SII'], fontsize='medium')
+        ax_sii.legend(['Tp Psychological Threshold', 'SII', f'Mean value ({mean:.4f})'], fontsize='medium')
         plt.draw()
         plt.show(block=False)
 
@@ -295,12 +297,14 @@ class SocialMeasurement(object):
                 rmi.append((2 + self.svea_states[i][2] * np.cos(beta) + self.pedestrian_states[key][i][2] * np.cos(phi)) / np.sqrt((self.pedestrian_states[key][i][0] - self.svea_states[i][0]) ** 2 + (self.pedestrian_states[key][i][1] - self.svea_states[i][1]) ** 2))
             rmi_plot.append([i, np.max(rmi)])
             rmi = []
-            ax_rmi.plot([*range(len(self.pedestrian_states[key]))], np.full(np.shape(self.svea_states)[0], Tm), '-r', linewidth=1)
-            ax_rmi.plot(np.array(rmi_plot)[:, 0], np.array(rmi_plot)[:, 1], '-co', markersize=2, linewidth=1)
+        mean = np.mean(np.array(rmi_plot)[:, 1])
+        ax_rmi.plot([*range(len(self.pedestrian_states[key]))], np.full(np.shape(self.svea_states)[0], Tm), '-r', linewidth=1)
+        ax_rmi.plot(np.array(rmi_plot)[:, 0], np.array(rmi_plot)[:, 1], '-co', markersize=2, linewidth=1)
+        ax_rmi.plot([*range(len(self.pedestrian_states[key]))], np.full(np.shape(self.svea_states)[0], mean), '--m', linewidth=1)
         ax_rmi.autoscale()
         ax_rmi.set_xlabel('Path Point')
         ax_rmi.set_ylabel('RMI')
-        ax_rmi.legend(['Tm Psychological Threshold', 'RMI'], fontsize='medium')
+        ax_rmi.legend(['Tm Psychological Threshold', 'RMI', f'Mean value ({mean:.4f})'], fontsize='medium')
 
     def plot_travel_time(self):
         """
