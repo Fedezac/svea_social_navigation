@@ -160,10 +160,12 @@ class SocialNavigation(object):
     MAX_N_PEDESTRIANS = 10
     MAX_WAIT = 1.0/10.0 # no slower than 10Hz
     # Parameter for sigmoid weight tuning
-    X_MIN = 1.0
+    X_MIN = 0.6
     X_MAX = 2.85
-    Y_MIN_APF = 1.0
-    Y_MAX_APF = 2.0
+    Y_MIN_SFM = 0.5
+    Y_MAX_SFM = 1.5
+    Y_MIN_APF = 0.5
+    Y_MAX_APF = 1.5
     Y_MIN_TRAJ = 0.5
     Y_MAX_TRAJ = 1.5
     # Weights 
@@ -462,7 +464,7 @@ class SocialNavigation(object):
         Q[0:2] *= increasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_TRAJ, self.Y_MAX_TRAJ, np.min([np.linalg.norm(np.array([self.x0[0:2]]).T - local_static_mpc[0:2, :], axis=0), np.linalg.norm(np.array([self.x0[0:2]]).T - local_dynamic_mpc[0:2, :], axis=0), np.linalg.norm(np.array([self.x0[0:2]]).T - local_pedestrian_mpc[0:2, :], axis=0)]))
         S = self.S * [decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_APF, self.Y_MAX_APF, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_static_mpc[0:2, :], axis=0))), 
                       decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_APF, self.Y_MAX_APF, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_dynamic_mpc[0:2, :], axis=0))),
-                      decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_APF, self.Y_MAX_APF, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_pedestrian_mpc[0:2, :], axis=0)))]
+                      decreasing_sigmoid(self.X_MIN, self.X_MAX, self.Y_MIN_SFM, self.Y_MAX_SFM, np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_pedestrian_mpc[0:2, :], axis=0)))]
         print(np.min(np.linalg.norm(np.array([self.x0[0:2]]).T - local_pedestrian_mpc[0:2, :], axis=0)))
         print(self.Q, Q)
         print(self.S, S)
